@@ -1,7 +1,10 @@
 import React from 'react';
-import { Utensils, Trash2 } from 'lucide-react';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { Image } from 'expo-image';
+import { Utensils, Trash2 } from 'lucide-react-native';
 import { formatNum } from '../lib/utils';
 import { Meal } from '../types';
+import { Theme } from '../theme';
 
 interface MealCardProps {
   meal: Meal;
@@ -10,41 +13,98 @@ interface MealCardProps {
 
 export const MealCard: React.FC<MealCardProps> = ({ meal, onDelete }) => {
   return (
-    <div className="bg-surface-container p-4 rounded-xl flex flex-col gap-3 border border-outline-variant/10">
-      <div className="flex items-center gap-4">
+    <View style={styles.card}>
+      <View style={styles.content}>
         {meal.imageUrl ? (
-          <img src={meal.imageUrl} alt={meal.name} className="w-12 h-12 rounded-lg object-cover" referrerPolicy="no-referrer" />
+          <Image 
+            source={{ uri: meal.imageUrl }} 
+            style={styles.image} 
+            contentFit="cover"
+            transition={200}
+          />
         ) : (
-          <div className="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
-            <Utensils size={20} />
-          </div>
+          <View style={styles.fallbackIcon}>
+            <Utensils size={20} color={Theme.colors.primary} />
+          </View>
         )}
-        <div className="grow">
-          <div className="flex-1 min-w-0">
-            <p className="font-bold truncate text-[15px]">{meal.name}</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">
-              {new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-
-            <div className="flex-1">
-              <p className="font-bold text-primary">{formatNum(meal.macros.calories)} kcal</p>
-              <p className="text-[11px] text-on-surface-variant mt-0.5">
-                P: {formatNum(meal.macros.protein)}g | C: {formatNum(meal.macros.carbs)}g | G: {formatNum(meal.macros.fats)}g
-              </p>
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={() => onDelete(meal)}
-          className="p-1.5 text-on-surface-variant/60 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors -mt-1 -mr-1"
-          aria-label="Eliminar comida"
-        >
-          <Trash2 size={18} />
-        </button>
-      </div>
-    </div>
-
+        <View style={styles.info}>
+          <Text style={styles.name} numberOfLines={1}>
+            {meal.name}
+          </Text>
+          <Text style={styles.time}>
+            {new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          <Text style={styles.calories}>
+            {formatNum(meal.macros.calories)} kcal
+          </Text>
+          <Text style={styles.macros}>
+            P: {formatNum(meal.macros.protein)}g  |  C: {formatNum(meal.macros.carbs)}g  |  G: {formatNum(meal.macros.fats)}g
+          </Text>
+        </View>
+        <Pressable onPress={() => onDelete(meal)} style={styles.deleteButton}>
+          <Trash2 size={18} color={Theme.colors.error} />
+        </Pressable>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    padding: 16,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  image: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+  },
+  fallbackIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  info: {
+    flex: 1,
+  },
+  name: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 15,
+    color: Theme.colors.onSurface,
+  },
+  time: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  calories: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 14,
+    color: Theme.colors.primary,
+    marginTop: 4,
+  },
+  macros: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  deleteButton: {
+    padding: 8,
+    alignSelf: 'flex-start',
+  },
+});

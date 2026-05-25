@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { Modal } from './Modal';
-import { Dumbbell, Loader2, Plus } from 'lucide-react';
+import { Dumbbell, Plus } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { StrengthRecord } from '../types';
+import { Theme } from '../theme';
 
 const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core'];
 
-export const RecordDialog: React.FC<{ 
-  isOpen: boolean; 
+interface RecordDialogProps {
+  isOpen: boolean;
   onClose: () => void;
   initialData?: StrengthRecord | null;
-}> = ({ isOpen, onClose, initialData }) => {
+}
+
+export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, initialData }) => {
   const { user } = useAuth();
   const [exercise, setExercise] = useState('Sentadilla');
   const [isCustom, setIsCustom] = useState(false);
@@ -26,7 +30,7 @@ export const RecordDialog: React.FC<{
     if (user && isOpen) {
       if (initialData) {
         setExercise(initialData.exercise);
-        setWeight(initialData.weight.toString());
+        setWeight(initialData.weight > 0 ? initialData.weight.toString() : '');
         setSelectedGroups(initialData.muscleGroups || []);
         setIsCustom(false);
         setCustomExercise('');
@@ -46,6 +50,9 @@ export const RecordDialog: React.FC<{
           snap.docs.forEach(doc => unique.add(doc.data().exercise));
           
           const combined = Array.from(new Set(['Sentadilla', 'Banca', 'Peso Muerto', ...Array.from(unique)]));
+          if (initialData && initialData.exercise && !combined.includes(initialData.exercise)) {
+            combined.push(initialData.exercise);
+          }
           setRecentExercises(combined);
         } catch (err) {
           console.error("Error fetching exercises", err);
@@ -53,7 +60,7 @@ export const RecordDialog: React.FC<{
       };
       fetchExercises();
     }
-  }, [user, isOpen]);
+  }, [user, isOpen, initialData]);
 
   const toggleGroup = (group: string) => {
     setSelectedGroups(prev => 
@@ -95,98 +102,225 @@ export const RecordDialog: React.FC<{
     }
   };
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Récord" : "Nuevo Récord"}>
-      <div className="space-y-6">
-        <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface">
-            <Dumbbell size={40} />
-          </div>
-        </div>
+  const isSaveDisabled = !weight || (isCustom && !customExercise.trim()) || selectedGroups.length === 0 || loading;
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Ejercicio</label>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {recentExercises.map((ex) => (
-                <button
-                  key={ex}
-                  onClick={() => {
-                    setExercise(ex);
-                    setIsCustom(false);
-                  }}
-                  className={`py-2 px-4 rounded-xl text-xs font-bold transition-colors ${
-                    !isCustom && exercise === ex 
-                      ? 'bg-surface-container-highest text-on-surface border-2 border-primary' 
-                      : 'bg-surface-container-high text-on-surface-variant border-2 border-transparent hover:bg-surface-container-highest'
-                  }`}
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={initialData && initialData.id ? "Editar Récord" : "Nuevo Récord"}>
+      <View style={styles.container}>
+        <View style={styles.iconContainer}>
+          <Dumbbell size={36} color={Theme.colors.onSurface} />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Ejercicio</Text>
+          <View style={styles.chipContainer}>
+            {recentExercises.map((ex) => (
+              <Pressable
+                key={ex}
+                onPress={() => {
+                  setExercise(ex);
+                  setIsCustom(false);
+                }}
+                style={[
+                  styles.chip,
+                  !isCustom && exercise === ex ? styles.chipActive : null
+                ]}
+              >
+                <Text 
+                  style={[
+                    styles.chipText,
+                    !isCustom && exercise === ex ? styles.chipTextActive : null
+                  ]}
                 >
                   {ex}
-                </button>
-              ))}
-              <button
-                onClick={() => setIsCustom(true)}
-                className={`py-2 px-4 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 ${
-                  isCustom 
-                    ? 'bg-surface-container-highest text-on-surface border-2 border-primary' 
-                    : 'bg-surface-container-high text-on-surface-variant border-2 border-transparent hover:bg-surface-container-highest'
-                }`}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => setIsCustom(true)}
+              style={[
+                styles.chip,
+                styles.chipWithIcon,
+                isCustom ? styles.chipActive : null
+              ]}
+            >
+              <Plus size={12} color={isCustom ? Theme.colors.onPrimary : Theme.colors.onSurfaceVariant} />
+              <Text 
+                style={[
+                  styles.chipText,
+                  isCustom ? styles.chipTextActive : null
+                ]}
               >
-                <Plus size={14} /> Otro
-              </button>
-            </div>
+                Otro
+              </Text>
+            </Pressable>
+          </View>
 
-            {isCustom && (
-              <input
-                type="text"
-                value={customExercise}
-                onChange={(e) => setCustomExercise(e.target.value)}
-                className="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-sm"
-                placeholder="Nombre del ejercicio..."
-                autoFocus
-              />
-            )}
-          </div>
+          {isCustom && (
+            <TextInput
+              value={customExercise}
+              onChangeText={setCustomExercise}
+              style={styles.input}
+              placeholder="Nombre del ejercicio..."
+              placeholderTextColor={Theme.colors.onSurfaceVariant}
+              autoFocus
+            />
+          )}
+        </View>
 
-          <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Grupos Musculares</label>
-            <div className="flex flex-wrap gap-2">
-              {MUSCLE_GROUPS.map(group => (
-                <button
-                  key={group}
-                  onClick={() => toggleGroup(group)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${
-                    selectedGroups.includes(group) 
-                      ? 'bg-primary text-on-primary' 
-                      : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'
-                  }`}
+        <View style={styles.section}>
+          <Text style={styles.label}>Grupos Musculares</Text>
+          <View style={styles.chipContainer}>
+            {MUSCLE_GROUPS.map((group) => (
+              <Pressable
+                key={group}
+                onPress={() => toggleGroup(group)}
+                style={[
+                  styles.chip,
+                  selectedGroups.includes(group) ? styles.chipActivePrimary : null
+                ]}
+              >
+                <Text 
+                  style={[
+                    styles.chipText,
+                    selectedGroups.includes(group) ? styles.chipTextActivePrimary : null
+                  ]}
                 >
                   {group}
-                </button>
-              ))}
-            </div>
-          </div>
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
-          <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Peso Levantado (kg)</label>
-            <input
-              type="number"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              className="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-4 focus:outline-none focus:border-primary transition-colors text-3xl font-black text-center"
-              placeholder="0"
-            />
-          </div>
-        </div>
+        <View style={styles.section}>
+          <Text style={styles.label}>Peso Levantado (kg)</Text>
+          <TextInput
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+            style={styles.weightInput}
+            placeholder="0"
+            placeholderTextColor={Theme.colors.onSurfaceVariant}
+          />
+        </View>
 
-        <button
-          onClick={handleSave}
-          disabled={!weight || (isCustom && !customExercise.trim()) || selectedGroups.length === 0 || loading}
-          className="w-full bg-surface-container-highest text-on-surface py-4 rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2 mt-8"
+        <Pressable
+          onPress={handleSave}
+          disabled={isSaveDisabled}
+          style={[styles.saveButton, isSaveDisabled ? styles.disabledButton : null]}
         >
-          {loading ? <Loader2 className="animate-spin" /> : 'Guardar Récord'}
-        </button>
-      </div>
+          {loading ? (
+            <ActivityIndicator color={Theme.colors.onSurface} />
+          ) : (
+            <Text style={styles.saveButtonText}>Guardar Récord</Text>
+          )}
+        </Pressable>
+      </View>
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    gap: 20,
+    paddingVertical: 4,
+  },
+  iconContainer: {
+    alignSelf: 'center',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Theme.colors.surfaceContainerHighest,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  section: {
+    gap: 8,
+  },
+  label: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 14,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  chipWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  chipActive: {
+    backgroundColor: Theme.colors.surfaceContainerHighest,
+    borderColor: Theme.colors.primary,
+  },
+  chipActivePrimary: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  chipText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 12,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  chipTextActive: {
+    color: Theme.colors.onSurface,
+  },
+  chipTextActivePrimary: {
+    color: Theme.colors.onPrimary,
+  },
+  input: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 14,
+    color: Theme.colors.onSurface,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  weightInput: {
+    fontFamily: Theme.fonts.headline,
+    fontSize: 32,
+    color: Theme.colors.onSurface,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 16,
+    textAlign: 'center',
+  },
+  saveButton: {
+    width: '100%',
+    backgroundColor: Theme.colors.surfaceContainerHighest,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  saveButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 16,
+    color: Theme.colors.onSurface,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+});

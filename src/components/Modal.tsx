@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { Modal as RNModal, StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
+import { X } from 'lucide-react-native';
+import { Theme } from '../theme';
 
 interface ModalProps {
   isOpen: boolean;
@@ -11,37 +12,83 @@ interface ModalProps {
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-surface-container w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-outline-variant/20 max-h-[90vh] flex flex-col"
+    <RNModal
+      visible={isOpen}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.header}>
+            <Text style={styles.title}>{title}</Text>
+            <Pressable style={styles.closeButton} onPress={onClose}>
+              <X size={18} color={Theme.colors.onSurfaceVariant} />
+            </Pressable>
+          </View>
+          <ScrollView 
+            style={styles.contentContainer} 
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
           >
-            <div className="flex items-center justify-between p-6 border-b border-outline-variant/10">
-              <h2 className="font-headline font-bold text-xl">{title}</h2>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              {children}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            {children}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </RNModal>
   );
 };
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    backgroundColor: Theme.colors.surfaceContainer,
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  title: {
+    fontFamily: Theme.fonts.headline,
+    fontSize: 20,
+    color: Theme.colors.onSurface,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentContainer: {
+    flexShrink: 1,
+  },
+  content: {
+    padding: 24,
+  },
+});

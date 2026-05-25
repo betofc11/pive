@@ -1,12 +1,16 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, Camera, Loader2, Plus, Trash2, Bookmark, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Camera, Image as ImageIcon, Plus, Trash2, Bookmark, AlertCircle, Check } from 'lucide-react-native';
 import { Modal } from './Modal';
 import { analyzeFoodImage, calculateMacrosFromIngredients } from '../services/geminiService';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore';
 import { formatNum, getLocalDateString } from '../lib/utils';
+import { Theme } from '../theme';
+import { saveMealToHealthKit } from '../services/healthKitService';
 
 interface Ingredient {
   name: string;
@@ -14,14 +18,15 @@ interface Ingredient {
   unit: string;
 }
 
-export const FoodDialog: React.FC<{ 
-  isOpen: boolean; 
+interface FoodDialogProps {
+  isOpen: boolean;
   onClose: () => void;
   initialData?: any;
-}> = ({ isOpen, onClose, initialData }) => {
+}
+
+export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initialData }) => {
   const { user } = useAuth();
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ uri: string; mimeType: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'upload' | 'edit' | 'saving'>('upload');
   
@@ -40,15 +45,16 @@ export const FoodDialog: React.FC<{
         setIngredients(initialData.ingredients || []);
         setMacros(initialData.macros || null);
         setStep('edit');
-        setPreview(initialData.imageUrl || null);
+        setSelectedImage(initialData.imageUrl ? { uri: initialData.imageUrl, mimeType: 'image/jpeg' } : null);
         setSaveAsFavorite(true);
       } else {
         setStep('upload');
         setFoodName('');
         setIngredients([]);
         setMacros(null);
-        setPreview(null);
-        setFile(null);
+        setSelectedImage(null);
+        setSaveAsFavorite(false);
+        setError(null);
       }
 
       const fetchSavedMeals = async () => {
@@ -62,38 +68,69 @@ export const FoodDialog: React.FC<{
       };
       fetchSavedMeals();
     }
-  }, [user, isOpen]);
+  }, [user, isOpen, initialData]);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const selectedFile = acceptedFiles[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(selectedFile);
+  const pickImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permiso Denegado', 'Se necesita acceso a la galería.');
+        return;
+      }
+
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        const asset = res.assets[0];
+        setSelectedImage({
+          uri: asset.uri,
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
+      }
+    } catch (err) {
+      console.error('Error selecting image', err);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
     }
-  }, []);
+  };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 1,
-    multiple: false,
-    onDragEnter: undefined,
-    onDragOver: undefined,
-    onDragLeave: undefined
-  } as any);
+  const takePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permiso Denegado', 'Se necesita acceso a la cámara.');
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        const asset = res.assets[0];
+        setSelectedImage({
+          uri: asset.uri,
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
+      }
+    } catch (err) {
+      console.error('Error taking photo', err);
+      Alert.alert('Error', 'No se pudo tomar la foto.');
+    }
+  };
 
   const handleAnalyze = async () => {
-    if (!preview) return;
+    if (!selectedImage) return;
     setLoading(true);
     setError(null);
     try {
-      const base64Data = preview.split(',')[1];
-      const mimeType = file?.type || 'image/jpeg';
-      const result = await analyzeFoodImage(base64Data, mimeType);
+      const base64Data = await FileSystem.readAsStringAsync(selectedImage.uri, {
+        encoding: 'base64',
+      });
+
+      const result = await analyzeFoodImage(base64Data, selectedImage.mimeType);
       
       setFoodName(result.name || 'Comida Desconocida');
       setIngredients(result.ingredients || []);
@@ -102,6 +139,7 @@ export const FoodDialog: React.FC<{
     } catch (err) {
       console.error("Error analyzing food:", err);
       setError("Error al analizar la imagen. Intenta de nuevo.");
+      Alert.alert('Error', 'La IA no pudo analizar la imagen. Ingresa la comida de forma manual.');
     } finally {
       setLoading(false);
     }
@@ -128,14 +166,11 @@ export const FoodDialog: React.FC<{
     setStep('saving');
     setError(null);
     try {
-      // 1. Calculate macros from ingredients if not already present or if ingredients were manually edited
-      // For simplicity, if they edit ingredients, we should ideally recalculate, but let's just recalculate if macros is null
       let finalMacros = macros;
       if (!finalMacros) {
         finalMacros = await calculateMacrosFromIngredients(ingredients);
       }
       
-      // 2. Save to savedMeals if requested
       if (saveAsFavorite && foodName.trim()) {
         const mealId = initialData?.id || Date.now().toString();
         await setDoc(doc(db, `users/${user.uid}/savedMeals`, mealId), {
@@ -147,7 +182,6 @@ export const FoodDialog: React.FC<{
         });
       }
 
-      // 3. Save to dailyLogs
       const today = getLocalDateString();
       const logId = today; 
       const logRef = doc(db, `users/${user.uid}/dailyLogs`, logId);
@@ -159,7 +193,7 @@ export const FoodDialog: React.FC<{
         name: foodName || 'Comida',
         time: new Date().toISOString(),
         macros: finalMacros,
-        imageUrl: preview 
+        imageUrl: selectedImage?.uri || ''
       };
 
       if (logDoc.exists()) {
@@ -181,15 +215,18 @@ export const FoodDialog: React.FC<{
           userId: user.uid,
           date: new Date().toISOString(),
           macros: finalMacros,
-          meals: [newMeal],
-          waterIntake: 0
+          meals: [newMeal]
         });
       }
 
+      // Sync to HealthKit
+      saveMealToHealthKit(foodName || 'Comida', finalMacros).catch(err => {
+        console.warn('[HealthKit] Error syncing meal from FoodDialog:', err);
+      });
+
       onClose();
       // Reset state
-      setFile(null);
-      setPreview(null);
+      setSelectedImage(null);
       setStep('upload');
       setIngredients([]);
       setMacros(null);
@@ -207,7 +244,10 @@ export const FoodDialog: React.FC<{
 
   const updateIngredient = (index: number, field: keyof Ingredient, value: string | number) => {
     const newIngredients = [...ingredients];
-    newIngredients[index] = { ...newIngredients[index], [field]: value };
+    newIngredients[index] = { 
+      ...newIngredients[index], 
+      [field]: field === 'quantity' ? (parseFloat(value as string) || 0) : value 
+    };
     setIngredients(newIngredients);
     setMacros(null); // Force recalculation if ingredients change
   };
@@ -225,171 +265,456 @@ export const FoodDialog: React.FC<{
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Registrar Comida">
       {step === 'upload' && (
-        <div className="space-y-6">
+        <View style={styles.container}>
           {savedMeals.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-on-surface-variant mb-3 flex items-center gap-1">
-                <Bookmark size={16} className="text-primary" /> Comidas Guardadas
-              </h3>
-              <div className="flex overflow-x-auto gap-3 pb-2 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {savedMeals.map(meal => (
-                  <button
+            <View style={styles.savedMealsSection}>
+              <Text style={styles.sectionTitle}>
+                <Bookmark size={14} color={Theme.colors.primary} /> Comidas Guardadas
+              </Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.savedMealsList}
+              >
+                {savedMeals.map((meal) => (
+                  <Pressable
                     key={meal.id}
-                    onClick={() => handleSelectSavedMeal(meal)}
-                    className="snap-start shrink-0 bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 w-36 text-left hover:bg-surface-container-highest transition-colors"
+                    onPress={() => handleSelectSavedMeal(meal)}
+                    style={styles.savedMealCard}
                   >
-                    <p className="font-bold text-sm truncate">{meal.name}</p>
-                    <p className="text-xs text-on-surface-variant mt-1">{formatNum(meal.macros?.calories || 0)} kcal</p>
-                  </button>
+                    <Text style={styles.savedMealName} numberOfLines={1}>
+                      {meal.name}
+                    </Text>
+                    <Text style={styles.savedMealCals}>
+                      {formatNum(meal.macros?.calories || 0)} kcal
+                    </Text>
+                  </Pressable>
                 ))}
-              </div>
-            </div>
+              </ScrollView>
+            </View>
           )}
 
-          <div 
-            {...getRootProps()} 
-            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors ${
-              isDragActive ? 'border-primary bg-primary/5' : 'border-outline-variant/30 hover:border-primary/50'
-            }`}
-          >
-            <input {...getInputProps()} />
-            {preview ? (
-              <div className="space-y-4">
-                <img src={preview} alt="Preview" className="max-h-48 mx-auto rounded-xl object-cover" />
-                <p className="text-sm text-primary font-medium">Toca para cambiar la imagen</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-surface-container-high rounded-full flex items-center justify-center mx-auto text-primary">
-                  <Camera size={32} />
-                </div>
-                <div>
-                  <p className="font-medium">Toma una foto o sube una imagen</p>
-                  <p className="text-sm text-on-surface-variant mt-1">Formatos soportados: JPG, PNG</p>
-                </div>
-              </div>
-            )}
-          </div>
+          {selectedImage ? (
+            <View style={styles.selectedFileBox}>
+              <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
+              <Pressable onPress={() => setSelectedImage(null)}>
+                <Text style={styles.changeFileText}>Eliminar imagen</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.uploadOptions}>
+              <Pressable style={styles.uploadOption} onPress={takePhoto}>
+                <Camera size={28} color={Theme.colors.primary} />
+                <Text style={styles.optionTitle}>Tomar Foto del Plato</Text>
+                <Text style={styles.optionSubtitle}>Cámara</Text>
+              </Pressable>
 
-          <div className="flex gap-4">
-            <button
-              onClick={handleManualEntry}
-              className="flex-1 bg-surface-container-high text-on-surface py-4 rounded-xl font-bold hover:bg-surface-container-highest transition-colors"
+              <Pressable style={styles.uploadOption} onPress={pickImage}>
+                <ImageIcon size={28} color={Theme.colors.primary} />
+                <Text style={styles.optionTitle}>Seleccionar de Galería</Text>
+                <Text style={styles.optionSubtitle}>Fotos</Text>
+              </Pressable>
+            </View>
+          )}
+
+          <View style={styles.footerButtons}>
+            <Pressable style={styles.manualButton} onPress={handleManualEntry}>
+              <Text style={styles.manualButtonText}>Entrada Manual</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.analyzeButton, (!selectedImage || loading) ? styles.disabledButton : null]}
+              disabled={!selectedImage || loading}
+              onPress={handleAnalyze}
             >
-              Entrada Manual
-            </button>
-            <button
-              onClick={handleAnalyze}
-              disabled={!preview || loading}
-              className="flex-1 bg-primary text-on-primary py-4 rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : 'Analizar IA'}
-            </button>
-          </div>
-        </div>
+              {loading ? (
+                <ActivityIndicator color={Theme.colors.onPrimary} />
+              ) : (
+                <Text style={styles.analyzeButtonText}>Analizar IA</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
       )}
 
       {step === 'edit' && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <button 
-              onClick={() => setStep('upload')} 
-              className="text-primary flex items-center gap-1 text-sm font-bold hover:text-primary/80 transition-colors"
-            >
-              ← Volver
-            </button>
-          </div>
+        <View style={styles.container}>
+          <Pressable style={styles.backButton} onPress={() => setStep('upload')}>
+            <Text style={styles.backButtonText}>← Volver a subir imagen</Text>
+          </Pressable>
 
           {error && (
-            <div className="bg-error/10 text-error p-3 rounded-xl text-sm font-medium flex items-center gap-2">
-              <AlertCircle size={16} />
-              {error}
-            </div>
+            <View style={styles.errorBox}>
+              <AlertCircle size={16} color={Theme.colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Nombre del Plato</label>
-            <input
-              type="text"
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>Nombre del Plato</Text>
+            <TextInput
               value={foodName}
-              onChange={(e) => setFoodName(e.target.value)}
-              className="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors"
+              onChangeText={setFoodName}
+              style={styles.formInput}
               placeholder="Ej. Ensalada César"
+              placeholderTextColor={Theme.colors.onSurfaceVariant}
             />
-          </div>
+          </View>
 
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-on-surface-variant">Ingredientes</label>
-              <button onClick={addIngredient} className="text-primary text-sm font-bold flex items-center gap-1">
-                <Plus size={16} /> Añadir
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              {ingredients.map((ing, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-surface-container-high p-2 rounded-xl">
-                  <input
-                    type="text"
-                    value={ing.name}
-                    onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
-                    placeholder="Ingrediente"
-                    className="flex-1 bg-transparent border-none focus:outline-none text-sm px-2"
-                  />
-                  <input
-                    type="number"
-                    value={ing.quantity || ''}
-                    onChange={(e) => updateIngredient(idx, 'quantity', parseFloat(e.target.value))}
-                    placeholder="Cant."
-                    className="w-16 bg-surface-container border border-outline-variant/20 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  />
-                  <input
-                    type="text"
-                    value={ing.unit}
-                    onChange={(e) => updateIngredient(idx, 'unit', e.target.value)}
-                    placeholder="Unidad"
-                    className="w-16 bg-surface-container border border-outline-variant/20 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  />
-                  <button onClick={() => removeIngredient(idx)} className="text-error p-1 hover:bg-error/10 rounded-lg">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-              {ingredients.length === 0 && (
-                <p className="text-sm text-on-surface-variant text-center py-4">Añade ingredientes para calcular los macros.</p>
-              )}
-            </div>
-          </div>
+          <View style={styles.ingredientsHeader}>
+            <Text style={styles.sectionTitle}>Ingredientes</Text>
+            <Pressable style={styles.addButton} onPress={addIngredient}>
+              <Plus size={14} color={Theme.colors.primary} />
+              <Text style={styles.addButtonText}>Añadir</Text>
+            </Pressable>
+          </View>
 
-          <div className="flex items-center gap-3 bg-surface-container-high p-4 rounded-xl border border-outline-variant/10">
-            <input
-              type="checkbox"
-              id="saveFavorite"
-              checked={saveAsFavorite}
-              onChange={(e) => setSaveAsFavorite(e.target.checked)}
-              className="w-5 h-5 rounded border-outline-variant/20 text-primary focus:ring-primary bg-surface-container"
-            />
-            <label htmlFor="saveFavorite" className="text-sm font-medium text-on-surface">
-              Guardar en comidas frecuentes
-            </label>
-          </div>
+          <View style={styles.ingredientsList}>
+            {ingredients.map((ing, idx) => (
+              <View key={idx} style={styles.ingredientRow}>
+                <TextInput
+                  value={ing.name}
+                  onChangeText={(val) => updateIngredient(idx, 'name', val)}
+                  placeholder="Ingrediente"
+                  placeholderTextColor={Theme.colors.onSurfaceVariant}
+                  style={styles.ingNameInput}
+                />
+                <TextInput
+                  value={ing.quantity > 0 ? ing.quantity.toString() : ''}
+                  onChangeText={(val) => updateIngredient(idx, 'quantity', val)}
+                  placeholder="Cant."
+                  placeholderTextColor={Theme.colors.onSurfaceVariant}
+                  keyboardType="numeric"
+                  style={styles.ingQtyInput}
+                />
+                <TextInput
+                  value={ing.unit}
+                  onChangeText={(val) => updateIngredient(idx, 'unit', val)}
+                  placeholder="Unid."
+                  placeholderTextColor={Theme.colors.onSurfaceVariant}
+                  style={styles.ingUnitInput}
+                />
+                <Pressable onPress={() => removeIngredient(idx)} style={styles.deleteButton}>
+                  <Trash2 size={16} color={Theme.colors.error} />
+                </Pressable>
+              </View>
+            ))}
 
-          <button
-            onClick={handleSave}
-            disabled={ingredients.length === 0 || !foodName}
-            className="w-full bg-primary text-on-primary py-4 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+            {ingredients.length === 0 && (
+              <Text style={styles.emptyIngredients}>Añade ingredientes para calcular los macros.</Text>
+            )}
+          </View>
+
+          <Pressable 
+            style={styles.checkboxContainer}
+            onPress={() => setSaveAsFavorite(!saveAsFavorite)}
           >
-            Calcular Macros y Guardar
-          </button>
-        </div>
+            <View style={[styles.checkbox, saveAsFavorite ? styles.checkboxChecked : null]}>
+              {saveAsFavorite && <Check size={14} color={Theme.colors.onPrimary} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Guardar en comidas frecuentes</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleSave}
+            disabled={ingredients.length === 0 || !foodName}
+            style={[styles.saveButton, (ingredients.length === 0 || !foodName) ? styles.disabledButton : null]}
+          >
+            <Text style={styles.saveButtonText}>Calcular Macros y Guardar</Text>
+          </Pressable>
+        </View>
       )}
 
       {step === 'saving' && (
-        <div className="py-12 flex flex-col items-center justify-center space-y-4">
-          <Loader2 size={48} className="text-primary animate-spin" />
-          <p className="text-lg font-medium">Calculando macros y guardando...</p>
-        </div>
+        <View style={styles.savingContainer}>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
+          <Text style={styles.savingText}>Calculando macros y guardando...</Text>
+        </View>
       )}
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    gap: 16,
+    paddingVertical: 4,
+  },
+  savedMealsSection: {
+    gap: 8,
+  },
+  sectionTitle: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 14,
+    color: Theme.colors.onSurfaceVariant,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  savedMealsList: {
+    gap: 10,
+    paddingRight: 16,
+  },
+  savedMealCard: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    padding: 12,
+    width: 130,
+  },
+  savedMealName: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+  },
+  savedMealCals: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+    marginTop: 4,
+  },
+  selectedFileBox: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    padding: 16,
+    alignItems: 'center',
+    gap: 12,
+  },
+  previewImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+  },
+  changeFileText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 12,
+    color: Theme.colors.error,
+  },
+  uploadOptions: {
+    gap: 8,
+  },
+  uploadOption: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  optionTitle: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 15,
+    color: Theme.colors.onSurface,
+  },
+  optionSubtitle: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  manualButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 14,
+    color: Theme.colors.onSurface,
+  },
+  analyzeButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyzeButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 14,
+    color: Theme.colors.onPrimary,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  backButtonText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 13,
+    color: Theme.colors.primary,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Theme.colors.errorContainer,
+    borderRadius: 10,
+    padding: 12,
+  },
+  errorText: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onError,
+    flex: 1,
+  },
+  formGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  formInput: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 15,
+    color: Theme.colors.onSurface,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  ingredientsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 13,
+    color: Theme.colors.primary,
+  },
+  ingredientsList: {
+    gap: 8,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  ingNameInput: {
+    flex: 1.5,
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+    paddingVertical: 4,
+  },
+  ingQtyInput: {
+    flex: 0.6,
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 8,
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
+  ingUnitInput: {
+    flex: 0.6,
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 8,
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
+  deleteButton: {
+    padding: 6,
+  },
+  emptyIngredients: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    marginTop: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Theme.colors.outlineVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  checkboxLabel: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  saveButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 15,
+    color: Theme.colors.onPrimary,
+  },
+  savingContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    gap: 16,
+  },
+  savingText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 16,
+    color: Theme.colors.onSurface,
+  },
+});

@@ -1,8 +1,10 @@
-# Pive - Tu Estilo de Vida Inteligente
+# Pive - Tu Estilo de Vida Inteligente (Mobile App)
 
-![Pive Logo](/public/logo.svg)
+> [!NOTE]
+> **Migración a React Native & Expo**: Este proyecto ha sido migrado de su versión web (PWA) original a una aplicación móvil nativa compatible con iOS y Android usando **React Native** y **Expo**. La versión web legada se encuentra archivada en la carpeta [web-backup](file:///Users/luis.fonseca/Dev/Personal/pive/web-backup/).
 
-**Pive** es una aplicación web progresiva (PWA) diseñada para simplificar y potenciar tu camino hacia una vida más saludable. Utilizando inteligencia artificial avanzada, Pive analiza tus planes nutricionales, realiza un seguimiento de tus macros y te motiva a superar tus límites físicos.
+**Pive** es una aplicación móvil diseñada para simplificar y potenciar tu camino hacia una vida más saludable. Utilizando inteligencia artificial avanzada (Gemini API), Pive analiza tus planes nutricionales, realiza un seguimiento de tus macros y te motiva a superar tus límites físicos.
+
 
 ## 🚀 Características Principales
 

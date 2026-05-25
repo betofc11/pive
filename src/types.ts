@@ -8,6 +8,8 @@ export interface UserProfile {
   macroGoals?: MacroGoals;
   bodyMetrics?: BodyMetrics;
   nutritionalPlan?: NutritionalPlan;
+  workoutPlan?: WorkoutPlan;
+  activeWorkoutSession?: ActiveWorkoutSession | null;
 }
 
 export interface BodyMetrics {
@@ -79,7 +81,7 @@ export interface DailyLog {
     calories: number;
   };
   meals: Meal[];
-  waterIntake: number; // in ml
+  waterIntake?: number; // in ml
   aiAdvice?: string;
   aiAdviceUpdatedAt?: number;
   adviceMacros?: {
@@ -111,3 +113,34 @@ export interface StrengthRecord {
   date: string;
   muscleGroups: string[];
 }
+
+export interface WorkoutPlan {
+  name: string;
+  days: WorkoutDay[];
+  extractedAt: number;
+}
+
+export interface WorkoutDay {
+  name: string;
+  exercises: WorkoutExercise[];
+}
+
+export interface WorkoutExercise {
+  name: string;
+  sets: string;
+  reps: string;
+  description: string;
+  youtubeUrl: string;
+  muscleGroups?: string[];
+}
+
+export interface ActiveWorkoutSession {
+  dayName: string;
+  startedAt: number;
+  exercises: ActiveExercise[];
+}
+
+export interface ActiveExercise extends WorkoutExercise {
+  done: boolean;
+}
+

@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'Usuario',
+              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
               photoURL: firebaseUser.photoURL || '',
               createdAt: Date.now(),
             };
@@ -55,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsAuthReady(true);
           }, (error) => {
             handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+            setLoading(false);
+            setIsAuthReady(true);
           });
 
         } catch (error) {

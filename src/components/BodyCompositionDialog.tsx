@@ -1,91 +1,134 @@
-import React, { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, Loader2, Scale } from 'lucide-react';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Upload, FileText, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { Modal } from './Modal';
 import { analyzeBodyComposition } from '../services/geminiService';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { Theme } from '../theme';
+import { saveMetricsToHealthKit } from '../services/healthKitService';
 
-import mammoth from 'mammoth';
+interface BodyCompositionDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-export const BodyCompositionDialog: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ isOpen, onClose }) => {
   const { user, profile } = useAuth();
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'upload' | 'edit' | 'saving'>('upload');
-  
+
   const [weight, setWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
   const [muscleMass, setMuscleMass] = useState('');
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const selectedFile = acceptedFiles[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(selectedFile);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 
-      'image/*': [], 
-      'application/pdf': [],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'text/plain': ['.txt'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
-    },
-    maxFiles: 1,
-    multiple: false,
-    onDragEnter: undefined,
-    onDragOver: undefined,
-    onDragLeave: undefined
-  } as any);
-
-  const handleAnalyze = async () => {
-    if (!file) return;
-    setLoading(true);
+  const pickDocument = async () => {
     try {
-      let analysisInput: { base64Data?: string; mimeType?: string; text?: string } = {};
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'text/plain', 'image/*'],
+        copyToCacheDirectory: true,
+      });
 
-      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        analysisInput.text = result.value;
-      } else if (file.type === 'text/plain') {
-        analysisInput.text = await file.text();
-      } else if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(file);
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        const asset = res.assets[0];
+        setSelectedFile({
+          uri: asset.uri,
+          name: asset.name,
+          mimeType: asset.mimeType || 'application/octet-stream',
         });
-        analysisInput.base64Data = await base64Promise;
-        analysisInput.mimeType = file.type;
-      } else {
-        // Fallback to text for excel/other doc types
-        analysisInput.text = await file.text();
+      }
+    } catch (err) {
+      console.error('Error picking document', err);
+      Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permiso Denegado', 'Se necesita acceso a la galería.');
+        return;
       }
 
-      const result = await analyzeBodyComposition(analysisInput);
-      
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        const asset = res.assets[0];
+        setSelectedFile({
+          uri: asset.uri,
+          name: asset.fileName || 'imagen.jpg',
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
+      }
+    } catch (err) {
+      console.error('Error picking image', err);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permiso Denegado', 'Se necesita acceso a la cámara.');
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        const asset = res.assets[0];
+        setSelectedFile({
+          uri: asset.uri,
+          name: asset.fileName || 'foto.jpg',
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
+      }
+    } catch (err) {
+      console.error('Error taking photo', err);
+      Alert.alert('Error', 'No se pudo tomar la foto.');
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) return;
+    setLoading(true);
+    try {
+      const base64Data = await FileSystem.readAsStringAsync(selectedFile.uri, {
+        encoding: 'base64',
+      });
+
+      const result = await analyzeBodyComposition({
+        base64Data,
+        mimeType: selectedFile.mimeType,
+      });
+
       setWeight(result.weight?.toString() || profile?.bodyMetrics?.weight?.toString() || '');
       setBodyFat(result.bodyFat?.toString() || profile?.bodyMetrics?.bodyFat?.toString() || '');
       setMuscleMass(result.muscleMass?.toString() || profile?.bodyMetrics?.muscleMass?.toString() || '');
-      
+
       setStep('edit');
     } catch (error) {
-      console.error("Error analyzing composition:", error);
-      alert("Error al analizar el documento. Intenta de nuevo o ingresa los datos manualmente.");
-      setStep('edit'); // Allow manual entry even if analysis fails
+      console.error('Error analyzing composition:', error);
+      Alert.alert(
+        'Análisis fallido',
+        'No pudimos procesar el archivo. ¿Deseas ingresar los datos manualmente?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Ingresar Manual', onPress: () => setStep('edit') }
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -99,12 +142,12 @@ export const BodyCompositionDialog: React.FC<{ isOpen: boolean; onClose: () => v
         weight: parseFloat(weight) || 0,
         bodyFat: parseFloat(bodyFat) || 0,
         muscleMass: parseFloat(muscleMass) || 0,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
 
       // Update current state in profile
       await updateDoc(doc(db, 'users', user.uid), {
-        bodyMetrics: metrics
+        bodyMetrics: metrics,
       });
 
       // Save to history collection
@@ -112,17 +155,20 @@ export const BodyCompositionDialog: React.FC<{ isOpen: boolean; onClose: () => v
         userId: user.uid,
         ...metrics,
         date: new Date().toISOString(),
-        createdAt: Date.now()
+        createdAt: Date.now(),
+      });
+
+      // Sync to HealthKit
+      saveMetricsToHealthKit(metrics.weight, metrics.bodyFat, metrics.muscleMass).catch(err => {
+        console.warn('[HealthKit] Error syncing metrics from BodyCompositionDialog:', err);
       });
 
       onClose();
       // Reset state
-      setFile(null);
-      setPreview(null);
+      setSelectedFile(null);
       setStep('upload');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-    } finally {
       setStep('edit');
     }
   };
@@ -130,115 +176,290 @@ export const BodyCompositionDialog: React.FC<{ isOpen: boolean; onClose: () => v
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Composición Corporal">
       {step === 'upload' && (
-        <div className="space-y-6">
-          <p className="text-sm text-on-surface-variant text-center">
-            Sube tu reporte InBody, documento de tu nutricionista o ingresa los datos manualmente.
-          </p>
-          
-          <div 
-            {...getRootProps()} 
-            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors ${
-              isDragActive ? 'border-primary bg-primary/5' : 'border-outline-variant/30 hover:border-primary/50'
-            }`}
-          >
-            <input {...getInputProps()} />
-            {file ? (
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
-                  <FileText size={32} />
-                </div>
-                <p className="font-medium text-primary">{file.name}</p>
-                <p className="text-xs text-on-surface-variant">Toca para cambiar el archivo</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-surface-container-high rounded-full flex items-center justify-center mx-auto text-primary">
-                  <Upload size={32} />
-                </div>
-                <div>
-                  <p className="font-medium">Sube un archivo o foto</p>
-                  <p className="text-sm text-on-surface-variant mt-1">Formatos: PDF, Word, Excel, Texto, Fotos</p>
-                </div>
-              </div>
-            )}
-          </div>
+        <View style={styles.container}>
+          <Text style={styles.subtext}>
+            Sube tu reporte InBody, documento de tu nutriólogo o toma una foto para que la IA extraiga tus métricas.
+          </Text>
 
-          <div className="flex gap-4">
-            <button
-              onClick={() => setStep('edit')}
-              className="flex-1 bg-surface-container-high text-on-surface py-4 rounded-xl font-bold hover:bg-surface-container-highest transition-colors"
+          {selectedFile ? (
+            <View style={styles.selectedFileBox}>
+              <View style={styles.fileIconWrapper}>
+                <FileText size={32} color={Theme.colors.primary} />
+              </View>
+              <Text style={styles.fileName} numberOfLines={1}>
+                {selectedFile.name}
+              </Text>
+              <Pressable onPress={() => setSelectedFile(null)}>
+                <Text style={styles.changeFileText}>Cambiar archivo</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.uploadOptions}>
+              <Pressable style={styles.uploadOption} onPress={pickDocument}>
+                <Upload size={24} color={Theme.colors.primary} />
+                <Text style={styles.optionTitle}>Buscar Documento</Text>
+                <Text style={styles.optionSubtitle}>PDF o Texto</Text>
+              </Pressable>
+
+              <View style={styles.row}>
+                <Pressable style={[styles.uploadOption, styles.halfOption]} onPress={pickImage}>
+                  <ImageIcon size={20} color={Theme.colors.primary} />
+                  <Text style={styles.optionTitleSmall}>Galería</Text>
+                </Pressable>
+
+                <Pressable style={[styles.uploadOption, styles.halfOption]} onPress={takePhoto}>
+                  <Camera size={20} color={Theme.colors.primary} />
+                  <Text style={styles.optionTitleSmall}>Cámara</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.footerButtons}>
+            <Pressable style={styles.manualButton} onPress={() => setStep('edit')}>
+              <Text style={styles.manualButtonText}>Entrada Manual</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.analyzeButton, (!selectedFile || loading) ? styles.disabledButton : null]}
+              disabled={!selectedFile || loading}
+              onPress={handleAnalyze}
             >
-              Entrada Manual
-            </button>
-            <button
-              onClick={handleAnalyze}
-              disabled={!file || loading}
-              className="flex-1 bg-primary text-on-primary py-4 rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : 'Analizar'}
-            </button>
-          </div>
-        </div>
+              {loading ? (
+                <ActivityIndicator color={Theme.colors.onPrimary} />
+              ) : (
+                <Text style={styles.analyzeButtonText}>Analizar con IA</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
       )}
 
       {step === 'edit' && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <button 
-              onClick={() => setStep('upload')} 
-              className="text-primary flex items-center gap-1 text-sm font-bold hover:text-primary/80 transition-colors"
-            >
-              ← Volver al escáner
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-on-surface-variant mb-2">Peso (kg)</label>
-              <input
-                type="number"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                className="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-xl font-bold"
-                placeholder="0.0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-on-surface-variant mb-2">% Grasa Corporal</label>
-              <input
-                type="number"
-                value={bodyFat}
-                onChange={(e) => setBodyFat(e.target.value)}
-                className="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-xl font-bold"
-                placeholder="0.0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-on-surface-variant mb-2">Masa Muscular (kg)</label>
-              <input
-                type="number"
-                value={muscleMass}
-                onChange={(e) => setMuscleMass(e.target.value)}
-                className="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-xl font-bold"
-                placeholder="0.0"
-              />
-            </div>
-          </div>
+        <View style={styles.container}>
+          <Pressable style={styles.backButton} onPress={() => setStep('upload')}>
+            <Text style={styles.backButtonText}>← Volver a subir archivo</Text>
+          </Pressable>
 
-          <button
-            onClick={handleSave}
-            className="w-full bg-primary text-on-primary py-4 rounded-xl font-bold flex items-center justify-center gap-2"
-          >
-            Guardar Métricas
-          </button>
-        </div>
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Peso (kg)</Text>
+              <TextInput
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="numeric"
+                style={styles.formInput}
+                placeholder="0.0"
+                placeholderTextColor={Theme.colors.onSurfaceVariant}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>% Grasa Corporal</Text>
+              <TextInput
+                value={bodyFat}
+                onChangeText={setBodyFat}
+                keyboardType="numeric"
+                style={styles.formInput}
+                placeholder="0.0"
+                placeholderTextColor={Theme.colors.onSurfaceVariant}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Masa Muscular (kg)</Text>
+              <TextInput
+                value={muscleMass}
+                onChangeText={setMuscleMass}
+                keyboardType="numeric"
+                style={styles.formInput}
+                placeholder="0.0"
+                placeholderTextColor={Theme.colors.onSurfaceVariant}
+              />
+            </View>
+          </View>
+
+          <Pressable style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Guardar Métricas</Text>
+          </Pressable>
+        </View>
       )}
 
       {step === 'saving' && (
-        <div className="py-12 flex flex-col items-center justify-center space-y-4">
-          <Loader2 size={48} className="text-primary animate-spin" />
-          <p className="text-lg font-medium">Guardando historial...</p>
-        </div>
+        <View style={styles.savingContainer}>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
+          <Text style={styles.savingText}>Guardando historial...</Text>
+        </View>
       )}
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    gap: 20,
+    paddingVertical: 4,
+  },
+  subtext: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 14,
+    color: Theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  selectedFileBox: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+  },
+  fileIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Theme.colors.primary + '1a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileName: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 16,
+    color: Theme.colors.primary,
+    textAlign: 'center',
+  },
+  changeFileText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 12,
+    color: Theme.colors.onSurfaceVariant,
+    textDecorationLine: 'underline',
+  },
+  uploadOptions: {
+    gap: 8,
+  },
+  uploadOption: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  halfOption: {
+    flex: 1,
+    paddingVertical: 16,
+  },
+  optionTitle: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 15,
+    color: Theme.colors.onSurface,
+  },
+  optionTitleSmall: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+  },
+  optionSubtitle: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  manualButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 14,
+    color: Theme.colors.onSurface,
+  },
+  analyzeButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyzeButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 14,
+    color: Theme.colors.onPrimary,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  backButtonText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 13,
+    color: Theme.colors.primary,
+  },
+  form: {
+    gap: 16,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 14,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  formInput: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 18,
+    color: Theme.colors.onSurface,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  saveButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 16,
+    color: Theme.colors.onPrimary,
+  },
+  savingContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    gap: 16,
+  },
+  savingText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 16,
+    color: Theme.colors.onSurface,
+  },
+});
