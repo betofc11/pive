@@ -66,6 +66,11 @@ export default function AuthScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
+        <Image 
+          source={require('../assets/images/icon.png')} 
+          style={styles.logoImage} 
+          resizeMode="contain"
+        />
         <Text style={styles.logo}>Pive</Text>
         <Text style={styles.subtitle}>Tu vibra, tu fuerza, tu plan.</Text>
       </View>
@@ -166,6 +171,11 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  logoImage: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
   },
   logo: {
     fontFamily: Theme.fonts.headline,

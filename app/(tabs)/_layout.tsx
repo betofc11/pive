@@ -170,8 +170,11 @@ export default function TabsLayout() {
           scrolled ? styles.headerScrolled : null
         ]}>
           <View style={styles.logoContainer}>
-            {/* SVG representation or simpler text icon */}
-            <Sparkles size={24} color={Theme.colors.primary} />
+            <Image 
+              source={require('../../assets/images/icon.png')} 
+              style={styles.logoIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.logoText}>Pive</Text>
           </View>
           <TouchableOpacity 
@@ -329,6 +332,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  logoIcon: {
+    width: 28,
+    height: 28,
   },
   logoText: {
     fontFamily: Theme.fonts.headline,
