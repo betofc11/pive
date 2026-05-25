@@ -626,6 +626,7 @@ const styles = StyleSheet.create({
   },
   ingNameInput: {
     flex: 1.5,
+    minWidth: 0,
     fontFamily: Theme.fonts.body,
     fontSize: 13,
     color: Theme.colors.onSurface,
@@ -633,6 +634,7 @@ const styles = StyleSheet.create({
   },
   ingQtyInput: {
     flex: 0.6,
+    minWidth: 0,
     fontFamily: Theme.fonts.body,
     fontSize: 13,
     color: Theme.colors.onSurface,
@@ -645,6 +647,7 @@ const styles = StyleSheet.create({
   },
   ingUnitInput: {
     flex: 0.6,
+    minWidth: 0,
     fontFamily: Theme.fonts.body,
     fontSize: 13,
     color: Theme.colors.onSurface,
