@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Logo Pive PWA (Marca Integrada)</title>
+  <defs>
+    <linearGradient id="piveBrandGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00E5FF"/> <stop offset="100%" stop-color="#7C4DFF"/> </linearGradient>
+  </defs>
+
+  <path 
+    d="M15 75C20 60 35 50 50 50C65 50 75 60 80 75M50 50C50 50 55 25 75 20M50 50L40 35" 
+    stroke="url(#piveBrandGradient)" 
+    stroke-width="7" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"
+  />
+
+  <circle 
+    cx="82" 
+    cy="28" 
+    r="6" 
+    fill="url(#piveBrandGradient)" 
+  />
+
+  <path 
+    d="M40 60C48 55 58 55 65 60" 
+    stroke="url(#piveBrandGradient)" 
+
+    stroke-width="2" 
+    stroke-linecap="round" 
+    opacity="0.4"
+  />
+</svg>
