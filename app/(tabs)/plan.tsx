@@ -9,7 +9,7 @@ import { analyzeNutritionPlan, calculateMacrosFromIngredients } from '../../src/
 import { useAuth } from '../../src/hooks/useAuth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
-import { formatNum, getLocalDateString } from '../../src/lib/utils';
+import { formatNum, getLocalDateString, readUriAsBase64 } from '../../src/lib/utils';
 import { DailyLog, Meal } from '../../src/types';
 import { SavedMealsSection } from '../../src/components/SavedMealsSection';
 import { FoodDialog } from '../../src/components/FoodDialog';
@@ -102,9 +102,7 @@ export default function PlanScreen() {
     setError(null);
 
     try {
-      const base64Data = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
-      });
+      const base64Data = await readUriAsBase64(uri);
 
       const analysis = await analyzeNutritionPlan({
         base64Data,

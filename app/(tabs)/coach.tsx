@@ -14,6 +14,7 @@ import { Theme } from '../../src/theme';
 import { useHeaderScroll } from './_layout';
 import { RecordDialog } from '../../src/components/RecordDialog';
 import { WorkoutDay, ActiveExercise, StrengthRecord } from '../../src/types';
+import { readUriAsBase64 } from '../../src/lib/utils';
 
 // Helper to open YouTube App directly or fallback to browser
 const openYouTubeSearch = async (query: string) => {
@@ -228,9 +229,7 @@ export default function CoachScreen() {
     try {
       const filesBase64 = await Promise.all(
         selectedFiles.map(async (file) => {
-          const base64Data = await FileSystem.readAsStringAsync(file.uri, {
-            encoding: 'base64',
-          });
+          const base64Data = await readUriAsBase64(file.uri);
           return {
             base64Data,
             mimeType: file.mimeType

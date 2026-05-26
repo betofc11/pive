@@ -9,7 +9,7 @@ import { analyzeFoodImage, calculateMacrosFromIngredients } from '../services/ge
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore';
-import { formatNum, getLocalDateString } from '../lib/utils';
+import { formatNum, getLocalDateString, readUriAsBase64 } from '../lib/utils';
 import { Theme } from '../theme';
 import { saveMealToHealthKit } from '../services/healthKitService';
 
@@ -127,9 +127,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     setLoading(true);
     setError(null);
     try {
-      const base64Data = await FileSystem.readAsStringAsync(selectedImage.uri, {
-        encoding: 'base64',
-      });
+      const base64Data = await readUriAsBase64(selectedImage.uri);
 
       const result = await analyzeFoodImage(base64Data, selectedImage.mimeType);
       

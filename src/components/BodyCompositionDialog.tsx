@@ -12,6 +12,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { Theme } from '../theme';
 import { saveMetricsToHealthKit } from '../services/healthKitService';
+import { readUriAsBase64 } from '../lib/utils';
 
 interface BodyCompositionDialogProps {
   isOpen: boolean;
@@ -106,9 +107,7 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
     if (!selectedFile) return;
     setLoading(true);
     try {
-      const base64Data = await FileSystem.readAsStringAsync(selectedFile.uri, {
-        encoding: 'base64',
-      });
+      const base64Data = await readUriAsBase64(selectedFile.uri);
 
       const result = await analyzeBodyComposition({
         base64Data,
