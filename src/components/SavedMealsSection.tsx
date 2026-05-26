@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
+import { Alert } from '../lib/alert';
 import { Bookmark, ChevronDown, ChevronUp, Plus, Trash2, Utensils, Edit2, CheckCircle2 } from 'lucide-react-native';
 import { collection, query, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';

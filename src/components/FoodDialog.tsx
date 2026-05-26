@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
+import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { Alert } from '../lib/alert';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Camera, Image as ImageIcon, Plus, Trash2, Bookmark, AlertCircle, Check } from 'lucide-react-native';
