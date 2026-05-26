@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Linking, Animated } from 'react-native';
 import { Alert } from '../../src/lib/alert';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -33,8 +33,44 @@ const openYouTubeSearch = async (query: string) => {
   }
 };
 
+const Skeleton = ({ width, height, borderRadius = 8, style }: { width?: any; height: number; borderRadius?: number; style?: any }) => {
+  const pulseAnim = React.useRef(new Animated.Value(0.3)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: width || '100%',
+          height,
+          borderRadius,
+          backgroundColor: Theme.colors.surfaceContainerHighest || '#e0e0e0',
+          opacity: pulseAnim,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
 export default function CoachScreen() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { setScrolled, setGlobalLoading, setGlobalLoadingMessage } = useHeaderScroll();
@@ -76,7 +112,7 @@ export default function CoachScreen() {
   const [selectedFiles, setSelectedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
-  const [elapsedTime, setElapsedTime] = useState('00:00');
+  const [elapsedTime, setElapsedTime] = useState('--:--');
 
   const currentPlan = profile?.workoutPlan;
   const activeSession = profile?.activeWorkoutSession;
@@ -84,18 +120,21 @@ export default function CoachScreen() {
   // Track live session timer
   useEffect(() => {
     if (!activeSession?.startedAt) {
-      setElapsedTime('00:00');
+      setElapsedTime('--:--');
       return;
     }
 
-    const interval = setInterval(() => {
+    const updateTimer = () => {
       const diffMs = Date.now() - activeSession.startedAt;
-      const totalSecs = Math.floor(diffMs / 1000);
+      const totalSecs = Math.max(0, Math.floor(diffMs / 1000));
       const mins = Math.floor(totalSecs / 60);
       const secs = totalSecs % 60;
       const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
       setElapsedTime(formatted);
-    }, 1000);
+    };
+
+    updateTimer(); // Run immediately on mount/update
+    const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
   }, [activeSession?.startedAt]);
@@ -309,6 +348,39 @@ export default function CoachScreen() {
       [exerciseName]: !prev[exerciseName]
     }));
   };
+
+  // 0. SKELETON LOADING VIEW (While fetching user profile/active session from Firestore)
+  if (authLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.activeHeader}>
+          <View style={{ gap: 8, flex: 1 }}>
+            <Skeleton width={180} height={26} borderRadius={6} />
+            <Skeleton width={120} height={16} borderRadius={4} />
+          </View>
+          <Skeleton width={80} height={32} borderRadius={16} />
+        </View>
+
+        <ScrollView style={styles.container} contentContainerStyle={styles.activeContent}>
+          <View style={styles.exercisesList}>
+            {[1, 2, 3].map((key) => (
+              <View key={key} style={[styles.exerciseCard, { padding: 16, gap: 12 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Skeleton width={24} height={24} borderRadius={6} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Skeleton width="70%" height={16} borderRadius={4} />
+                    <Skeleton width="40%" height={12} borderRadius={4} />
+                  </View>
+                  <Skeleton width={20} height={20} borderRadius={10} />
+                </View>
+              </View>
+            ))}
+          </View>
+          <Skeleton height={50} borderRadius={16} style={{ marginTop: 24 }} />
+        </ScrollView>
+      </View>
+    );
+  }
 
   // 1. ACTIVE WORKOUT VIEW
   if (activeSession) {
