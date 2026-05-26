@@ -4,7 +4,7 @@ const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 // Helper to determine the model to use
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-3.1-flash-lite-preview";
 
 export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeType?: string; text?: string }) => {
   if (!ai || !apiKey) {
