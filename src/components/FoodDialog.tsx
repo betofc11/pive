@@ -195,6 +195,9 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         imageUrl: selectedImage?.uri || ''
       };
 
+      const expireAt = new Date();
+      expireAt.setDate(expireAt.getDate() + 90); // 90 days TTL
+
       if (logDoc.exists()) {
         const currentData = logDoc.data();
         const currentMacros = currentData.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 };
@@ -206,7 +209,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
             fats: currentMacros.fats + (finalMacros.fats || 0),
             calories: currentMacros.calories + (finalMacros.calories || 0)
           },
-          meals: [...(currentData.meals || []), newMeal]
+          meals: [...(currentData.meals || []), newMeal],
+          expireAt
         });
       } else {
         await setDoc(logRef, {
@@ -214,7 +218,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
           userId: user.uid,
           date: new Date().toISOString(),
           macros: finalMacros,
-          meals: [newMeal]
+          meals: [newMeal],
+          expireAt
         });
       }
 

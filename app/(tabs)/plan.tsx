@@ -169,6 +169,9 @@ export default function PlanScreen() {
       const logRef = doc(db, `users/${user.uid}/dailyLogs`, today);
       const logSnap = await getDoc(logRef);
       
+      const expireAt = new Date();
+      expireAt.setDate(expireAt.getDate() + 90); // 90 days TTL
+
       if (logSnap.exists()) {
         const currentLog = logSnap.data() as DailyLog;
         await updateDoc(logRef, {
@@ -178,7 +181,8 @@ export default function PlanScreen() {
             protein: currentLog.macros.protein + newMeal.macros.protein,
             carbs: currentLog.macros.carbs + newMeal.macros.carbs,
             fats: currentLog.macros.fats + newMeal.macros.fats,
-          }
+          },
+          expireAt
         });
       } else {
         await setDoc(logRef, {
@@ -186,7 +190,8 @@ export default function PlanScreen() {
           userId: user.uid,
           date: new Date().toISOString(),
           macros: newMeal.macros,
-          meals: [newMeal]
+          meals: [newMeal],
+          expireAt
         });
       }
       
