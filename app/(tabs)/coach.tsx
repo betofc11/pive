@@ -76,7 +76,7 @@ export default function CoachScreen() {
   const [error, setError] = useState<string | null>(null);
   const { setScrolled, setGlobalLoading, setGlobalLoadingMessage } = useHeaderScroll();
 
-  const [prWeights, setPrWeights] = useState<Record<string, { weight: number; date: string; id: string }>>({});
+  const [prWeights, setPrWeights] = useState<Record<string, StrengthRecord>>({});
   const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
   const [dialogInitialData, setDialogInitialData] = useState<any | null>(null);
 
@@ -89,13 +89,13 @@ export default function CoachScreen() {
 
     const q = query(collection(db, `users/${user.uid}/strengthRecords`), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const map: Record<string, { weight: number; date: string; id: string }> = {};
+      const map: Record<string, StrengthRecord> = {};
       snapshot.docs.forEach((docSnap) => {
         const record = { ...docSnap.data(), id: docSnap.id } as StrengthRecord;
         if (record.exercise) {
           const key = record.exercise.toLowerCase().trim();
           if (!map[key] || record.weight > map[key].weight) {
-            map[key] = { weight: record.weight, date: record.date, id: record.id };
+            map[key] = record;
           }
         }
       });
@@ -390,9 +390,18 @@ export default function CoachScreen() {
             <Text style={styles.activeTitle}>Entrenamiento Activo</Text>
             <Text style={styles.activeSubtitle}>{activeSession.dayName}</Text>
           </View>
-          <View style={styles.timerBadge}>
-            <Clock size={16} color={Theme.colors.primary} />
-            <Text style={styles.timerText}>{elapsedTime}</Text>
+          <View style={styles.activeHeaderRight}>
+            <View style={styles.timerBadge}>
+              <Clock size={16} color={Theme.colors.primary} />
+              <Text style={styles.timerText}>{elapsedTime}</Text>
+            </View>
+            <Pressable
+              style={styles.finishHeaderBtn}
+              onPress={handleFinishWorkout}
+            >
+              <Square size={12} color="#ffffff" fill="#ffffff" />
+              <Text style={styles.finishHeaderBtnText}>Terminar</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -459,6 +468,12 @@ export default function CoachScreen() {
                                 {prRecord ? (
                                   <>
                                     Récord: <Text style={styles.prValue}>{prRecord.weight} kg</Text>
+                                    {prRecord.reps !== undefined && (
+                                      <Text style={styles.prSubValue}> x {prRecord.reps} {prRecord.reps === 1 ? 'rep' : 'reps'}</Text>
+                                    )}
+                                    {prRecord.isUnilateral && (
+                                      <Text style={styles.prUnilateralText}> (Unilateral)</Text>
+                                    )}
                                   </>
                                 ) : (
                                   "Sin récord registrado"
@@ -468,14 +483,18 @@ export default function CoachScreen() {
                             <Pressable
                               style={styles.addPrBtn}
                               onPress={() => {
-                                setDialogInitialData({
-                                  id: '',
-                                  userId: user?.uid || '',
-                                  exercise: exercise.name,
-                                  weight: 0,
-                                  date: new Date().toISOString(),
-                                  muscleGroups: exercise.muscleGroups || []
-                                });
+                                setDialogInitialData(
+                                  prRecord || {
+                                    id: '',
+                                    userId: user?.uid || '',
+                                    exercise: exercise.name,
+                                    weight: 0,
+                                    reps: 1,
+                                    isUnilateral: false,
+                                    date: new Date().toISOString(),
+                                    muscleGroups: exercise.muscleGroups || []
+                                  }
+                                );
                                 setIsRecordDialogOpen(true);
                               }}
                             >
@@ -501,14 +520,6 @@ export default function CoachScreen() {
             })}
           </View>
 
-          {/* Terminar Button */}
-          <Pressable
-            style={styles.finishBtn}
-            onPress={handleFinishWorkout}
-          >
-            <Square size={14} color="#ffffff" fill="#ffffff" />
-            <Text style={styles.finishBtnText}>Terminar Entrenamiento</Text>
-          </Pressable>
         </ScrollView>
 
         <RecordDialog
@@ -1160,25 +1171,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Theme.colors.onSurface,
   },
-  finishBtn: {
-    backgroundColor: '#dc2626', // consistent premium red for terminating
+  activeHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    borderRadius: 16,
-    paddingVertical: 14,
-    marginTop: 8,
-    marginBottom: 24, // margin bottom to clear bottom tab bar
-    shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
   },
-  finishBtnText: {
+  finishHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 99,
+    backgroundColor: '#dc2626',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  finishHeaderBtnText: {
     fontFamily: Theme.fonts.bodyBold,
-    fontSize: 15,
+    fontSize: 12,
     color: '#ffffff',
   },
   prSection: {
@@ -1207,6 +1221,15 @@ const styles = StyleSheet.create({
   prValue: {
     fontFamily: Theme.fonts.bodyBold,
     color: '#ffffff',
+  },
+  prSubValue: {
+    fontFamily: Theme.fonts.bodyBold,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  prUnilateralText: {
+    fontFamily: Theme.fonts.label,
+    color: Theme.colors.secondary,
+    fontSize: 11,
   },
   addPrBtn: {
     flexDirection: 'row',

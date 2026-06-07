@@ -8,9 +8,18 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  scrollEnabled?: boolean;
+  footer?: React.ReactNode;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+export const Modal: React.FC<ModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  children, 
+  scrollEnabled = true,
+  footer
+}) => {
   return (
     <RNModal
       visible={isOpen}
@@ -30,9 +39,16 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
             style={styles.contentContainer} 
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={scrollEnabled}
+            keyboardShouldPersistTaps="handled"
           >
             {children}
           </ScrollView>
+          {footer && (
+            <View style={styles.footer}>
+              {footer}
+            </View>
+          )}
         </Pressable>
       </Pressable>
     </RNModal>
@@ -90,5 +106,13 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 24,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.surfaceContainer,
   },
 });

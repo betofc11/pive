@@ -57,7 +57,7 @@ export const analizarComida = onRequest(
         Analiza el siguiente texto que describe una comida y estima sus ingredientes: "${comidaTexto}".
         Calcula los macronutrientes totales (calorías, proteínas, carbohidratos, grasas).
         Responde exclusivamente con un objeto JSON plano que contenga los campos:
-        - comida (string): Un nombre resumido de la comida analizada.
+        - comida (string): Un nombre resumido de la comida analizada. ¡DEBE ESTAR EN ESPAÑOL! (ej. "Huevos con aguacate" en vez de "Eggs with avocado").
         - calorias (number): Las calorías totales calculadas.
         - proteinas (number): Los gramos de proteína calculados.
         - carbohidratos (number): Los gramos de carbohidratos calculados.

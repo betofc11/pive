@@ -54,6 +54,7 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
     Si es un plan nutricional, extrae los objetivos diarios y agrupa las comidas por tipo (ej. Desayuno, Almuerzo, Cena, Snack).
     Para cada tipo de comida, extrae las diferentes opciones disponibles.
     Para cada opción, dale un título descriptivo, lista los ingredientes con sus cantidades y unidades, y calcula sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
+    REGLA DE IDIOMA: Todos los campos de texto del JSON (títulos de opciones, nombres de ingredientes, unidades, etc.) DEBEN estar estrictamente en español.
     Responde en formato JSON.
   `;
 
@@ -144,6 +145,7 @@ export const analyzeFoodImage = async (base64Data: string, mimeType: string) => 
 
   const prompt = `
     Analiza esta imagen de comida. Identifica el plato, los ingredientes visibles con una cantidad aproximada, y calcula los macronutrientes totales (calorías, proteínas, carbohidratos, grasas).
+    REGLA DE IDIOMA: Todos los campos de texto del JSON (como 'name' del plato y 'name' de los ingredientes) DEBEN estar estrictamente en español.
     Responde en formato JSON.
   `;
 

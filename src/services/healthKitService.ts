@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import AppleHealthKit, { HealthKitPermissions } from 'react-native-health';
 
 const permissions = {
@@ -20,6 +20,12 @@ const permissions = {
   }
 } as HealthKitPermissions;
 
+// Helper to get AppleHealthKit dynamically at runtime to support New Architecture / Bridgeless mode
+const getHealthKit = () => {
+  if (Platform.OS !== 'ios') return null;
+  return NativeModules.AppleHealthKit || AppleHealthKit;
+};
+
 // Keep track of initialization status
 let isInitialized = false;
 
@@ -27,10 +33,11 @@ let isInitialized = false;
  * Checks if the HealthKit native module is linked and available
  */
 export const isHealthKitAvailable = (): boolean => {
+  const hk = getHealthKit();
   return (
     Platform.OS === 'ios' &&
-    !!AppleHealthKit &&
-    typeof AppleHealthKit.initHealthKit === 'function'
+    !!hk &&
+    typeof hk.initHealthKit === 'function'
   );
 };
 
@@ -58,7 +65,13 @@ export const initHealthKit = (): Promise<boolean> => {
       return;
     }
 
-    AppleHealthKit.initHealthKit(permissions, (error: string) => {
+    const hk = getHealthKit();
+    if (!hk) {
+      resolve(false);
+      return;
+    }
+
+    hk.initHealthKit(permissions, (error: string) => {
       if (error) {
         console.warn('[HealthKit] Initialization failed:', error);
         resolve(false);
@@ -84,6 +97,9 @@ export const saveMealToHealthKit = async (
     const initialized = await initHealthKit();
     if (!initialized) return;
 
+    const hk = getHealthKit();
+    if (!hk) return;
+
     const date = new Date().toISOString();
 
     const foodOptions: any = {
@@ -98,7 +114,7 @@ export const saveMealToHealthKit = async (
       fatTotal: macros.fats,
     };
 
-    AppleHealthKit.saveFood(foodOptions, (err: string) => {
+    hk.saveFood(foodOptions, (err: string) => {
       if (err) {
         console.warn('[HealthKit] Error saving food correlation:', err);
       } else {
@@ -124,6 +140,9 @@ export const saveMetricsToHealthKit = async (
     const initialized = await initHealthKit();
     if (!initialized) return;
 
+    const hk = getHealthKit();
+    if (!hk) return;
+
     const date = new Date().toISOString();
 
     // 1. Save Weight (in kg)
@@ -135,7 +154,7 @@ export const saveMetricsToHealthKit = async (
         startDate: date,
         endDate: date,
       };
-      AppleHealthKit.saveWeight(
+      hk.saveWeight(
         weightOptions,
         (err: string) => {
           if (err) {
@@ -157,7 +176,7 @@ export const saveMetricsToHealthKit = async (
         startDate: date,
         endDate: date,
       };
-      AppleHealthKit.saveBodyFatPercentage(
+      hk.saveBodyFatPercentage(
         fatOptions,
         (err: string) => {
           if (err) {
@@ -178,7 +197,7 @@ export const saveMetricsToHealthKit = async (
         startDate: date,
         endDate: date,
       };
-      AppleHealthKit.saveLeanBodyMass(
+      hk.saveLeanBodyMass(
         leanMassOptions,
         (err: string) => {
           if (err) {
@@ -221,8 +240,13 @@ export const getLatestMetricsFromHealthKit = async (): Promise<HealthKitLatestMe
       throw new Error('HealthKit initialization failed');
     }
 
+    const hk = getHealthKit();
+    if (!hk) {
+      throw new Error('HealthKit module is unavailable');
+    }
+
     const getWeightPromise = new Promise<HealthKitMetric | null>((resolve) => {
-      AppleHealthKit.getLatestWeight({ unit: 'kg' } as any, (err: string, results: any) => {
+      hk.getLatestWeight({ unit: 'kg' } as any, (err: string, results: any) => {
         if (err || !results) {
           resolve(null);
         } else {
@@ -235,7 +259,7 @@ export const getLatestMetricsFromHealthKit = async (): Promise<HealthKitLatestMe
     });
 
     const getBodyFatPromise = new Promise<HealthKitMetric | null>((resolve) => {
-      AppleHealthKit.getLatestBodyFatPercentage({} as any, (err: string, results: any) => {
+      hk.getLatestBodyFatPercentage({} as any, (err: string, results: any) => {
         if (err || !results) {
           resolve(null);
         } else {
@@ -248,7 +272,7 @@ export const getLatestMetricsFromHealthKit = async (): Promise<HealthKitLatestMe
     });
 
     const getMuscleMassPromise = new Promise<HealthKitMetric | null>((resolve) => {
-      AppleHealthKit.getLatestLeanBodyMass({ unit: 'kg' } as any, (err: string, results: any) => {
+      hk.getLatestLeanBodyMass({ unit: 'kg' } as any, (err: string, results: any) => {
         if (err || !results) {
           resolve(null);
         } else {
@@ -276,5 +300,3 @@ export const getLatestMetricsFromHealthKit = async (): Promise<HealthKitLatestMe
     throw error;
   }
 };
-
-

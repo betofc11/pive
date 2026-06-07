@@ -434,6 +434,16 @@ export default function StatsScreen() {
                             <View style={styles.exerciseWeightRow}>
                               <Text style={styles.exerciseWeightValue}>{formatNum(record.weight)}</Text>
                               <Text style={styles.exerciseWeightUnit}>KG</Text>
+                              {record.reps !== undefined && (
+                                <Text style={styles.exerciseRepsText}>
+                                  x{record.reps} {record.reps === 1 ? 'rep' : 'reps'}
+                                </Text>
+                              )}
+                              {record.isUnilateral && (
+                                <View style={styles.unilateralBadge}>
+                                  <Text style={styles.unilateralBadgeText}>Unilateral</Text>
+                                </View>
+                              )}
                             </View>
                           </View>
 
@@ -667,8 +677,8 @@ const styles = StyleSheet.create({
   },
   exerciseWeightRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
+    alignItems: 'center',
+    gap: 4,
   },
   exerciseWeightValue: {
     fontFamily: Theme.fonts.headline,
@@ -679,6 +689,28 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.bodyBold,
     fontSize: 10,
     color: Theme.colors.primary,
+    marginRight: 4,
+  },
+  exerciseRepsText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+    marginLeft: 2,
+  },
+  unilateralBadge: {
+    backgroundColor: Theme.colors.secondary + '1a',
+    borderColor: Theme.colors.secondary + '33',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+  },
+  unilateralBadgeText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 9,
+    color: Theme.colors.secondary,
+    textTransform: 'uppercase',
   },
   exerciseActions: {
     flexDirection: 'row',

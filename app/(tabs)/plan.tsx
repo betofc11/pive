@@ -29,6 +29,7 @@ export default function PlanScreen() {
   }, [setScrolled]);
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [loggingMeal, setLoggingMeal] = useState<string | null>(null);
   const [editingMeal, setEditingMeal] = useState<any | null>(null);
   const [isFoodDialogOpen, setIsFoodDialogOpen] = useState(false);
@@ -297,43 +298,64 @@ export default function PlanScreen() {
         <View style={styles.planContent}>
           {/* Plan Summary Card */}
           <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
+            <Pressable
+              onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
+              style={styles.summaryHeaderPressable}
+            >
               <View style={styles.summaryTitleRow}>
                 <CheckCircle2 size={18} color={Theme.colors.primary} />
-                <Text style={styles.summaryTitle}>Plan Extraído</Text>
+                <Text style={styles.summaryTitle}>Plan actual</Text>
+                {!isSummaryExpanded && (
+                  <Text style={styles.summaryHeaderCalories}>
+                    • {formatNum(currentPlan.calories)} kcal
+                  </Text>
+                )}
               </View>
-              <Text style={styles.summaryDate}>
-                {new Date(currentPlan.extractedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-              </Text>
-            </View>
+              {isSummaryExpanded ? (
+                <ChevronUp size={20} color={Theme.colors.primary} />
+              ) : (
+                <ChevronDown size={20} color={Theme.colors.onSurfaceVariant} />
+              )}
+            </Pressable>
 
-            <View style={styles.summaryStatsRow}>
-              <View style={styles.summaryStatItem}>
-                <Text style={styles.statLabel}>Calorías</Text>
-                <Text style={styles.statValue}>{formatNum(currentPlan.calories)} kcal</Text>
-              </View>
-              
-              <View style={styles.summaryMacrosGrid}>
-                <View style={[styles.macroItem, { borderBottomColor: Theme.colors.tertiary }]}>
-                  <Text style={styles.macroLabel}>Prot</Text>
-                  <Text style={styles.macroValue}>{formatNum(currentPlan.protein)}g</Text>
+            {isSummaryExpanded && (
+              <View style={styles.summaryDetailsExpanded}>
+                <View style={styles.summaryDateRow}>
+                  <Text style={styles.summaryDateLabel}>Extraído el:</Text>
+                  <Text style={styles.summaryDate}>
+                    {new Date(currentPlan.extractedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                  </Text>
                 </View>
-                <View style={[styles.macroItem, { borderBottomColor: Theme.colors.secondary }]}>
-                  <Text style={styles.macroLabel}>Carb</Text>
-                  <Text style={styles.macroValue}>{formatNum(currentPlan.carbs)}g</Text>
-                </View>
-                <View style={[styles.macroItem, { borderBottomColor: Theme.colors.primary }]}>
-                  <Text style={styles.macroLabel}>Grasa</Text>
-                  <Text style={styles.macroValue}>{formatNum(currentPlan.fats)}g</Text>
-                </View>
-              </View>
-            </View>
 
-            {currentPlan.advice ? (
-              <View style={styles.summaryAdvice}>
-                <Text style={styles.adviceText}>{`"${currentPlan.advice}"`}</Text>
+                <View style={styles.summaryStatsRow}>
+                  <View style={styles.summaryStatItem}>
+                    <Text style={styles.statLabel}>Calorías</Text>
+                    <Text style={styles.statValue}>{formatNum(currentPlan.calories)} kcal</Text>
+                  </View>
+                  
+                  <View style={styles.summaryMacrosGrid}>
+                    <View style={[styles.macroItem, { borderBottomColor: Theme.colors.tertiary }]}>
+                      <Text style={styles.macroLabel}>Prot</Text>
+                      <Text style={styles.macroValue}>{formatNum(currentPlan.protein)}g</Text>
+                    </View>
+                    <View style={[styles.macroItem, { borderBottomColor: Theme.colors.secondary }]}>
+                      <Text style={styles.macroLabel}>Carb</Text>
+                      <Text style={styles.macroValue}>{formatNum(currentPlan.carbs)}g</Text>
+                    </View>
+                    <View style={[styles.macroItem, { borderBottomColor: Theme.colors.primary }]}>
+                      <Text style={styles.macroLabel}>Grasa</Text>
+                      <Text style={styles.macroValue}>{formatNum(currentPlan.fats)}g</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {currentPlan.advice ? (
+                  <View style={styles.summaryAdvice}>
+                    <Text style={styles.adviceText}>{`"${currentPlan.advice}"`}</Text>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
+            )}
           </View>
 
           {/* Meals Categories Accordion */}
@@ -597,13 +619,38 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: Theme.colors.primary + '33', // 20% primary
-    padding: 20,
-    gap: 16,
+    padding: 18,
   },
   summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  summaryHeaderPressable: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryHeaderCalories: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+    marginLeft: 6,
+  },
+  summaryDetailsExpanded: {
+    gap: 16,
+    marginTop: 16,
+  },
+  summaryDateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  summaryDateLabel: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 12,
+    color: Theme.colors.onSurfaceVariant,
   },
   summaryTitleRow: {
     flexDirection: 'row',

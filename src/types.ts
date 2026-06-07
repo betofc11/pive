@@ -112,6 +112,8 @@ export interface StrengthRecord {
   weight: number;
   date: string;
   muscleGroups: string[];
+  reps?: number;
+  isUnilateral?: boolean;
 }
 
 export interface WorkoutPlan {
