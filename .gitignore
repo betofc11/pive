@@ -40,7 +40,8 @@ yarn-error.*
 app-example
 
 # generated native folders
-/android
+/ios/
+/android/
 
 # test artifacts
 /artifacts/
