@@ -106,7 +106,15 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
     2. Identifica cuántos tiempos de comida individuales (filas o secciones independientes de comida) están descritos. Por ejemplo, en menús típicos puede haber 5 o más comidas (ej: Desayuno, Merienda 1, Almuerzo, Merienda 2, Cena).
     3. DEBES extraer de manera secuencial y cronológica absolutamente TODOS los tiempos de comida individuales descritos en el documento.
     4. IMPORTANTE (NO AGRUPAR MISMO NOMBRE): Si el plan contiene múltiples comidas con el mismo tipo/nombre (por ejemplo, dos comidas diferentes llamadas "MERIENDA" o "COLACIÓN" en distintos horarios), NO las unas, no las agrupes ni metas sus opciones juntas en una sola categoría. Crea un elemento de comida separado para cada una de forma cronológica, diferenciándolas en el campo 'type' (ej. "Merienda 1", "Merienda 2", etc.), para que aparezcan como comidas independientes.
-    5. Para cada comida individual, extrae las diferentes opciones disponibles de alimentos.
+    5. ESTRUCTURA DE OPCIONES POR DÍAS O VARIANTES (IMPORTANTE):
+       - Los planes nutricionales pueden estar estructurados de diferentes formas (tablas con columnas de días, listas secuenciales día a día, o incluso en prosa).
+       - Si el plan incluye variaciones de comidas para diferentes días de la semana (por ejemplo, diferentes almuerzos o desayunos para Lunes, Martes, Miércoles, etc., o variantes para el Fin de Semana):
+         - NO extraigas únicamente el primer día o una única opción.
+         - DEBES identificar y extraer todas las diferentes variantes o platillos que se proponen para los distintos días de la semana en cada tiempo de comida.
+         - Coloca cada variante como una alternativa independiente en la lista de 'options' de esa comida. No omitas ningún platillo ni ninguna variante descrita.
+         - Ponle como título a cada opción un nombre descriptivo que comience indicando el día o días de la semana a los que aplica seguido del nombre del plato (por ejemplo: "Lunes: Salmón con vegetales", "Martes/Miércoles: Pechuga de pollo con brócoli", "Fin de Semana: Gallo pinto con huevos", etc.).
+         - Si una comida tiene una única opción aplicable para todos los días por igual, entonces extrae esa única opción.
+         - Si varias opciones se repiten en días diferentes, puedes agruparlas en una sola opción indicando los días en el título (ej: "Lunes a Miércoles: Avena con plátano").
     6. Para cada opción, dale un título descriptivo en español, lista los ingredientes con sus cantidades y unidades correspondientes, y calcula/estima sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
     7. Identifica si el documento tiene una sección de "PORCIONES O INTERCAMBIOS" (o equivalentes recomendados) y extrae cada grupo con su respectiva cantidad diaria en la propiedad 'exchanges'.
     
