@@ -122,79 +122,112 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
     parts.push({ inlineData: { data: input.base64Data, mimeType: input.mimeType } });
   }
 
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents: [{ parts }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          calories: { type: Type.NUMBER },
-          protein: { type: Type.NUMBER },
-          carbs: { type: Type.NUMBER },
-          fats: { type: Type.NUMBER },
-          advice: { type: Type.STRING },
-          exchanges: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING, description: "Nombre del grupo de intercambio, ej. Proteínas, Harinas, Frutas, Leche, Grasas, etc." },
-                qty: { type: Type.STRING, description: "Cantidad diaria recomendada, ej. '12', '7', 'Libres', '2+'" }
+  let response;
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    try {
+      response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{ parts }],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              calories: { type: Type.NUMBER },
+              protein: { type: Type.NUMBER },
+              carbs: { type: Type.NUMBER },
+              fats: { type: Type.NUMBER },
+              advice: { type: Type.STRING },
+              exchanges: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING, description: "Nombre del grupo de intercambio, ej. Proteínas, Harinas, Frutas, Leche, Grasas, etc." },
+                    qty: { type: Type.STRING, description: "Cantidad diaria recomendada, ej. '12', '7', 'Libres', '2+'" }
+                  },
+                  required: ["name", "qty"]
+                },
+                description: "Lista de porciones o grupos de intercambio diarios recomendados en el plan (si están de alguna forma presentes)."
               },
-              required: ["name", "qty"]
-            },
-            description: "Lista de porciones o grupos de intercambio diarios recomendados en el plan (si están de alguna forma presentes)."
-          },
-          meals: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING, description: "Ej. Desayuno, Merienda, Almuerzo, Cena" },
-                options: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      title: { type: Type.STRING, description: "Título de la opción, ej. Avena con frutas" },
-                      macros: {
+              meals: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    type: { type: Type.STRING, description: "Ej. Desayuno, Merienda, Almuerzo, Cena" },
+                    options: {
+                      type: Type.ARRAY,
+                      items: {
                         type: Type.OBJECT,
                         properties: {
-                          calories: { type: Type.NUMBER },
-                          protein: { type: Type.NUMBER },
-                          carbs: { type: Type.NUMBER },
-                          fats: { type: Type.NUMBER }
-                        },
-                        required: ["calories", "protein", "carbs", "fats"]
-                      },
-                      ingredients: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: {
-                            name: { type: Type.STRING },
-                            quantity: { type: Type.NUMBER },
-                            unit: { type: Type.STRING }
+                          title: { type: Type.STRING, description: "Título de la opción, ej. Avena con frutas" },
+                          macros: {
+                            type: Type.OBJECT,
+                            properties: {
+                              calories: { type: Type.NUMBER },
+                              protein: { type: Type.NUMBER },
+                              carbs: { type: Type.NUMBER },
+                              fats: { type: Type.NUMBER }
+                            },
+                            required: ["calories", "protein", "carbs", "fats"]
                           },
-                          required: ["name", "quantity", "unit"]
-                        }
+                          ingredients: {
+                            type: Type.ARRAY,
+                            items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                name: { type: Type.STRING },
+                                quantity: { type: Type.NUMBER },
+                                unit: { type: Type.STRING }
+                              },
+                              required: ["name", "quantity", "unit"]
+                            }
+                          }
+                        },
+                        required: ["title", "ingredients"]
                       }
-                    },
-                    required: ["title", "ingredients"]
-                  }
+                    }
+                  },
+                  required: ["type", "options"]
                 }
-              },
-              required: ["type", "options"]
-            }
+              }
+            },
+            required: ["name", "calories", "protein", "carbs", "fats"]
           }
-        },
-        required: ["name", "calories", "protein", "carbs", "fats"]
+        }
+      });
+      break;
+    } catch (error: any) {
+      attempts++;
+      const errorMsg = error?.message || "";
+      const isRetryable =
+        error?.status === 429 ||
+        error?.statusCode === 429 ||
+        error?.status === 503 ||
+        error?.statusCode === 503 ||
+        errorMsg.includes("429") ||
+        errorMsg.includes("503") ||
+        errorMsg.includes("RESOURCE_EXHAUSTED") ||
+        errorMsg.includes("UNAVAILABLE");
+
+      if (isRetryable && attempts < maxAttempts) {
+        const backoffMs = attempts * 1500;
+        console.warn(`[Gemini API] Intento ${attempts} fallido. Reintentando en ${backoffMs}ms... Error:`, errorMsg);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      } else {
+        throw error;
       }
     }
-  });
+  }
+
+  if (!response || !response.text) {
+    throw new Error("La API de Gemini no devolvió respuesta estructurada.");
+  }
 
   return JSON.parse(response.text || '{}');
 };
