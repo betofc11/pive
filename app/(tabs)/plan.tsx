@@ -44,7 +44,19 @@ export default function PlanScreen() {
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        handleUpload(res.assets[0].uri, res.assets[0].mimeType || 'application/octet-stream');
+        const asset = res.assets[0];
+        let mimeType = asset.mimeType;
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          const extension = asset.name ? asset.name.split('.').pop()?.toLowerCase() : '';
+          if (extension === 'pdf') {
+            mimeType = 'application/pdf';
+          } else if (extension === 'txt') {
+            mimeType = 'text/plain';
+          } else if (['jpg', 'jpeg', 'png', 'webp'].includes(extension || '')) {
+            mimeType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+          }
+        }
+        handleUpload(asset.uri, mimeType || 'application/octet-stream');
       }
     } catch (err) {
       console.error('Error picking document', err);

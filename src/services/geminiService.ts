@@ -100,11 +100,16 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
     Analiza este plan nutricional (ya sea una imagen, un PDF o texto extraído). 
     Extrae los macronutrientes (proteínas, carbohidratos, grasas) y las calorías totales.
     Si es un plan nutricional, extrae los objetivos diarios.
-    DEBES extraer de manera secuencial y completa TODAS las comidas descritas en el documento tal y como aparecen. NO omitas comidas intermedias o secundarias (como colaciones o meriendas) ni las agrupes de forma que se reduzcan a menos comidas de las especificadas en el plan.
-    IMPORTANTE: Si el documento contiene múltiples comidas con el mismo tipo/nombre (por ejemplo, dos comidas llamadas "Merienda" o "Colación" a diferentes horas), NO las unas ni las agrupes en un mismo elemento. Debes crear un elemento separado para cada una en el arreglo 'meals', diferenciándolas en el campo 'type' con un número secuencial o distintivo (ej. "Merienda 1", "Merienda 2", etc.), para que permanezcan como comidas independientes en el orden cronológico en que aparecen.
-    Para cada comida, extrae las diferentes opciones disponibles.
-    Para cada opción, dale un título descriptivo, lista los ingredientes con sus cantidades y unidades, y calcula sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
-    Identifica si el documento tiene una sección de "PORCIONES O INTERCAMBIOS" (o equivalentes diarios recomendados) y extrae cada grupo con su respectiva cantidad diaria en la propiedad 'exchanges'.
+    
+    INSTRUCCIONES DE ANÁLISIS DETALLADO:
+    1. Identifica y lee cuidadosamente la tabla completa. El documento puede estar en orientación horizontal (apaisado/landscape) o con el texto de lado. Lee los encabezados y filas correspondientes en la dirección correcta.
+    2. Identifica cuántos tiempos de comida individuales (filas o secciones independientes de comida) están descritos. Por ejemplo, en menús típicos puede haber 5 o más comidas (ej: Desayuno, Merienda 1, Almuerzo, Merienda 2, Cena).
+    3. DEBES extraer de manera secuencial y cronológica absolutamente TODOS los tiempos de comida individuales descritos en el documento.
+    4. IMPORTANTE (NO AGRUPAR MISMO NOMBRE): Si el plan contiene múltiples comidas con el mismo tipo/nombre (por ejemplo, dos comidas diferentes llamadas "MERIENDA" o "COLACIÓN" en distintos horarios), NO las unas, no las agrupes ni metas sus opciones juntas en una sola categoría. Crea un elemento de comida separado para cada una de forma cronológica, diferenciándolas en el campo 'type' (ej. "Merienda 1", "Merienda 2", etc.), para que aparezcan como comidas independientes.
+    5. Para cada comida individual, extrae las diferentes opciones disponibles de alimentos.
+    6. Para cada opción, dale un título descriptivo en español, lista los ingredientes con sus cantidades y unidades correspondientes, y calcula/estima sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
+    7. Identifica si el documento tiene una sección de "PORCIONES O INTERCAMBIOS" (o equivalentes recomendados) y extrae cada grupo con su respectiva cantidad diaria en la propiedad 'exchanges'.
+    
     REGLA DE IDIOMA: Todos los campos de texto del JSON (títulos de opciones, nombres de ingredientes, unidades, nombres de los grupos de intercambio, etc.) DEBEN estar estrictamente en español.
     Responde en formato JSON.
   `;
