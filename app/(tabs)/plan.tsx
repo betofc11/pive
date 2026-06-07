@@ -126,6 +126,7 @@ export default function PlanScreen() {
             fats: analysis.fats,
             advice: analysis.advice || '',
             meals: analysis.meals || [],
+            exchanges: analysis.exchanges || [],
             extractedAt: Date.now()
           }
         }, { merge: true });
@@ -352,6 +353,20 @@ export default function PlanScreen() {
                 {currentPlan.advice ? (
                   <View style={styles.summaryAdvice}>
                     <Text style={styles.adviceText}>{`"${currentPlan.advice}"`}</Text>
+                  </View>
+                ) : null}
+
+                {currentPlan.exchanges && currentPlan.exchanges.length > 0 ? (
+                  <View style={styles.exchangesSection}>
+                    <Text style={styles.exchangesTitle}>PORCIONES DE INTERCAMBIO DIARIAS</Text>
+                    <View style={styles.exchangesGrid}>
+                      {currentPlan.exchanges.map((ex: any, i: number) => (
+                        <View key={i} style={styles.exchangeItem}>
+                          <Text style={styles.exchangeQty}>{ex.qty}</Text>
+                          <Text style={styles.exchangeName}>{ex.name}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 ) : null}
               </View>
@@ -730,6 +745,45 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: Theme.colors.onSurfaceVariant,
     lineHeight: 18,
+  },
+  exchangesSection: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    paddingTop: 12,
+  },
+  exchangesTitle: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 10,
+    color: Theme.colors.onSurfaceVariant,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  exchangesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  exchangeItem: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  exchangeQty: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 12,
+    color: Theme.colors.primary,
+  },
+  exchangeName: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurface,
   },
   mealCategoriesSection: {
     gap: 12,

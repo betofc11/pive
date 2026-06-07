@@ -15,6 +15,14 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
       carbs: 200,
       fats: 65,
       advice: "Para activar el análisis inteligente de tu plan por IA, por favor añade tu GEMINI_API_KEY en tu archivo .env.",
+      exchanges: [
+        { name: "Proteínas", qty: "12" },
+        { name: "Harinas", qty: "7" },
+        { name: "Frutas", qty: "1" },
+        { name: "Leches", qty: "1" },
+        { name: "Grasas", qty: "5" },
+        { name: "Vegetales", qty: "Libres" }
+      ],
       meals: [
         {
           type: "Desayuno",
@@ -26,6 +34,19 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
                 { name: "Avena en hojuelas", quantity: 60, unit: "g" },
                 { name: "Leche descremada", quantity: 200, unit: "ml" },
                 { name: "Plátano", quantity: 1, unit: "pza" }
+              ]
+            }
+          ]
+        },
+        {
+          type: "Merienda 1",
+          options: [
+            {
+              title: "Manzana con Almendras (Ejemplo)",
+              macros: { calories: 180, protein: 4, carbs: 22, fats: 10 },
+              ingredients: [
+                { name: "Manzana", quantity: 1, unit: "pza" },
+                { name: "Almendras", quantity: 15, unit: "pzas" }
               ]
             }
           ]
@@ -43,6 +64,33 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
               ]
             }
           ]
+        },
+        {
+          type: "Merienda 2",
+          options: [
+            {
+              title: "Yogurt Griego con Berries (Ejemplo)",
+              macros: { calories: 150, protein: 15, carbs: 12, fats: 3 },
+              ingredients: [
+                { name: "Yogurt griego sin azúcar", quantity: 150, unit: "g" },
+                { name: "Fresas/Arándanos", quantity: 50, unit: "g" }
+              ]
+            }
+          ]
+        },
+        {
+          type: "Cena",
+          options: [
+            {
+              title: "Ensalada de Atún (Ejemplo)",
+              macros: { calories: 320, protein: 28, carbs: 10, fats: 18 },
+              ingredients: [
+                { name: "Atún en agua", quantity: 120, unit: "g" },
+                { name: "Aguacate", quantity: 50, unit: "g" },
+                { name: "Espinacas y Lechuga", quantity: 100, unit: "g" }
+              ]
+            }
+          ]
         }
       ]
     };
@@ -51,10 +99,12 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
   const prompt = `
     Analiza este plan nutricional (ya sea una imagen, un PDF o texto extraído). 
     Extrae los macronutrientes (proteínas, carbohidratos, grasas) y las calorías totales.
-    Si es un plan nutricional, extrae los objetivos diarios y agrupa las comidas por tipo (ej. Desayuno, Almuerzo, Cena, Snack).
-    Para cada tipo de comida, extrae las diferentes opciones disponibles.
+    Si es un plan nutricional, extrae los objetivos diarios.
+    DEBES extraer de manera secuencial y completa TODAS las comidas descritas en el documento tal y como aparecen (por ejemplo: Desayuno, Merienda 1, Almuerzo, Merienda 2, Cena, Snack). NO omitas comidas intermedias o secundarias (como colaciones o meriendas) ni las agrupes de forma que se reduzcan a menos comidas de las especificadas en el plan.
+    Para cada comida, extrae las diferentes opciones disponibles.
     Para cada opción, dale un título descriptivo, lista los ingredientes con sus cantidades y unidades, y calcula sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
-    REGLA DE IDIOMA: Todos los campos de texto del JSON (títulos de opciones, nombres de ingredientes, unidades, etc.) DEBEN estar estrictamente en español.
+    Identifica si el documento tiene una sección de "PORCIONES O INTERCAMBIOS" (o equivalentes diarios recomendados) y extrae cada grupo con su respectiva cantidad diaria en la propiedad 'exchanges'.
+    REGLA DE IDIOMA: Todos los campos de texto del JSON (títulos de opciones, nombres de ingredientes, unidades, nombres de los grupos de intercambio, etc.) DEBEN estar estrictamente en español.
     Responde en formato JSON.
   `;
 
@@ -80,12 +130,24 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
           carbs: { type: Type.NUMBER },
           fats: { type: Type.NUMBER },
           advice: { type: Type.STRING },
+          exchanges: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING, description: "Nombre del grupo de intercambio, ej. Proteínas, Harinas, Frutas, Leche, Grasas, etc." },
+                qty: { type: Type.STRING, description: "Cantidad diaria recomendada, ej. '12', '7', 'Libres', '2+'" }
+              },
+              required: ["name", "qty"]
+            },
+            description: "Lista de porciones o grupos de intercambio diarios recomendados en el plan (si están de alguna forma presentes)."
+          },
           meals: {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
               properties: {
-                type: { type: Type.STRING, description: "Ej. Desayuno, Almuerzo, Cena" },
+                type: { type: Type.STRING, description: "Ej. Desayuno, Merienda, Almuerzo, Cena" },
                 options: {
                   type: Type.ARRAY,
                   items: {

@@ -6,9 +6,12 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
   const prompt = `
     Analiza este plan nutricional (ya sea una imagen, un PDF o texto extraído). 
     Extrae los macronutrientes (proteínas, carbohidratos, grasas) y las calorías totales.
-    Si es un plan nutricional, extrae los objetivos diarios y agrupa las comidas por tipo (ej. Desayuno, Almuerzo, Cena, Snack).
-    Para cada tipo de comida, extrae las diferentes opciones disponibles.
+    Si es un plan nutricional, extrae los objetivos diarios.
+    DEBES extraer de manera secuencial y completa TODAS las comidas descritas en el documento tal y como aparecen (por ejemplo: Desayuno, Merienda 1, Almuerzo, Merienda 2, Cena, Snack). NO omitas comidas intermedias o secundarias (como colaciones o meriendas) ni las agrupes de forma que se reduzcan a menos comidas de las especificadas en el plan.
+    Para cada comida, extrae las diferentes opciones disponibles.
     Para cada opción, dale un título descriptivo, lista los ingredientes con sus cantidades y unidades, y calcula sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
+    Identifica si el documento tiene una sección de "PORCIONES O INTERCAMBIOS" (o equivalentes diarios recomendados) y extrae cada grupo con su respectiva cantidad diaria en la propiedad 'exchanges'.
+    REGLA DE IDIOMA: Todos los campos de texto del JSON (títulos de opciones, nombres de ingredientes, unidades, nombres de los grupos de intercambio, etc.) DEBEN estar estrictamente en español.
     Responde en formato JSON.
   `;
 
@@ -34,12 +37,24 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
           carbs: { type: Type.NUMBER },
           fats: { type: Type.NUMBER },
           advice: { type: Type.STRING },
+          exchanges: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING, description: "Nombre del grupo de intercambio, ej. Proteínas, Harinas, Frutas, Leche, Grasas, etc." },
+                qty: { type: Type.STRING, description: "Cantidad diaria recomendada, ej. '12', '7', 'Libres', '2+'" }
+              },
+              required: ["name", "qty"]
+            },
+            description: "Lista de porciones o grupos de intercambio diarios recomendados en el plan (si están de alguna forma presentes)."
+          },
           meals: {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
               properties: {
-                type: { type: Type.STRING, description: "Ej. Desayuno, Almuerzo, Cena" },
+                type: { type: Type.STRING, description: "Ej. Desayuno, Merienda, Almuerzo, Cena" },
                 options: {
                   type: Type.ARRAY,
                   items: {

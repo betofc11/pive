@@ -28,6 +28,11 @@ export interface BodyMetricsHistory {
   createdAt: number;
 }
 
+export interface NutritionalPlanExchange {
+  name: string;
+  qty: string;
+}
+
 export interface NutritionalPlan {
   name: string;
   calories: number;
@@ -37,6 +42,7 @@ export interface NutritionalPlan {
   advice?: string;
   extractedAt: number;
   meals?: PlanMealCategory[];
+  exchanges?: NutritionalPlanExchange[];
 }
 
 export interface PlanMealCategory {

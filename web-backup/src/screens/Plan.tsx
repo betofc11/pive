@@ -137,6 +137,7 @@ export const Plan: React.FC = () => {
               fats: analysis.fats,
               advice: analysis.advice || '',
               meals: analysis.meals || [],
+              exchanges: analysis.exchanges || [],
               extractedAt: Date.now()
             }
           }, { merge: true });
@@ -259,6 +260,20 @@ export const Plan: React.FC = () => {
             {planData.advice && (
               <div className="bg-surface-container-low p-3 rounded-lg italic text-on-surface-variant text-xs">
                 "{planData.advice}"
+              </div>
+            )}
+
+            {planData.exchanges && planData.exchanges.length > 0 && (
+              <div className="border-t border-outline-variant/10 pt-3 mt-3">
+                <p className="text-[10px] text-on-surface-variant uppercase font-bold mb-2">Porciones de Intercambio</p>
+                <div className="flex flex-wrap gap-2">
+                  {planData.exchanges.map((ex: any, i: number) => (
+                    <div key={i} className="bg-surface-container-high px-2.5 py-1 rounded-lg border border-outline-variant/5 text-xs flex items-center gap-1.5">
+                      <span className="font-bold text-primary">{ex.qty}</span>
+                      <span className="text-on-surface-variant capitalize">{ex.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
