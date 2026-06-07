@@ -100,7 +100,8 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
     Analiza este plan nutricional (ya sea una imagen, un PDF o texto extraído). 
     Extrae los macronutrientes (proteínas, carbohidratos, grasas) y las calorías totales.
     Si es un plan nutricional, extrae los objetivos diarios.
-    DEBES extraer de manera secuencial y completa TODAS las comidas descritas en el documento tal y como aparecen (por ejemplo: Desayuno, Merienda 1, Almuerzo, Merienda 2, Cena, Snack). NO omitas comidas intermedias o secundarias (como colaciones o meriendas) ni las agrupes de forma que se reduzcan a menos comidas de las especificadas en el plan.
+    DEBES extraer de manera secuencial y completa TODAS las comidas descritas en el documento tal y como aparecen. NO omitas comidas intermedias o secundarias (como colaciones o meriendas) ni las agrupes de forma que se reduzcan a menos comidas de las especificadas en el plan.
+    IMPORTANTE: Si el documento contiene múltiples comidas con el mismo tipo/nombre (por ejemplo, dos comidas llamadas "Merienda" o "Colación" a diferentes horas), NO las unas ni las agrupes en un mismo elemento. Debes crear un elemento separado para cada una en el arreglo 'meals', diferenciándolas en el campo 'type' con un número secuencial o distintivo (ej. "Merienda 1", "Merienda 2", etc.), para que permanezcan como comidas independientes en el orden cronológico en que aparecen.
     Para cada comida, extrae las diferentes opciones disponibles.
     Para cada opción, dale un título descriptivo, lista los ingredientes con sus cantidades y unidades, y calcula sus macronutrientes (calorías, proteínas, carbohidratos, grasas).
     Identifica si el documento tiene una sección de "PORCIONES O INTERCAMBIOS" (o equivalentes diarios recomendados) y extrae cada grupo con su respectiva cantidad diaria en la propiedad 'exchanges'.
