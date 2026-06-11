@@ -19,8 +19,7 @@ interface RecordDialogProps {
 export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, initialData }) => {
   const { user } = useAuth();
   const [exercise, setExercise] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('1');
   const [isUnilateral, setIsUnilateral] = useState(false);
@@ -30,8 +29,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
 
   useEffect(() => {
     if (user && isOpen) {
-      setIsDropdownOpen(false);
-      setSearchQuery('');
+      setShowSuggestions(false);
       if (initialData) {
         setExercise(initialData.exercise);
         setWeight(initialData.weight > 0 ? initialData.weight.toString() : '');
@@ -66,8 +64,15 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
     }
   }, [user, isOpen, initialData]);
 
+  const filteredSuggestions = exercise.trim() === ''
+    ? recentExercises
+    : recentExercises.filter(ex => 
+        ex.toLowerCase().includes(exercise.toLowerCase()) &&
+        ex.toLowerCase() !== exercise.toLowerCase().trim()
+      );
+
   const toggleGroup = (group: string) => {
-    setIsDropdownOpen(false);
+    setShowSuggestions(false);
     setSelectedGroups(prev => 
       prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]
     );
@@ -100,8 +105,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
       setWeight('');
       setReps('1');
       setIsUnilateral(false);
-      setSearchQuery('');
-      setIsDropdownOpen(false);
+      setShowSuggestions(false);
       setSelectedGroups([]);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/strengthRecords`);
@@ -117,7 +121,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
       isOpen={isOpen} 
       onClose={onClose} 
       title={initialData && initialData.id ? "Editar Récord" : "Nuevo Récord"}
-      scrollEnabled={!isDropdownOpen}
+      scrollEnabled={!showSuggestions}
       footer={
         <Pressable
           onPress={handleSave}
@@ -134,7 +138,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
     >
       <Pressable 
         style={styles.container} 
-        onPress={() => setIsDropdownOpen(false)}
+        onPress={() => setShowSuggestions(false)}
         accessible={false}
       >
         <View style={styles.iconContainer}>
@@ -150,63 +154,33 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
             </View>
           ) : (
             <View style={styles.dropdownContainer}>
-              <Pressable
-                onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-                style={styles.dropdownTrigger}
-              >
-                <Text style={exercise ? styles.selectedExerciseText : styles.placeholderText}>
-                  {exercise || 'Seleccionar ejercicio...'}
-                </Text>
-                <ChevronDown size={18} color={Theme.colors.onSurfaceVariant} />
-              </Pressable>
+              <TextInput
+                value={exercise}
+                onChangeText={(text) => {
+                  setExercise(text);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                placeholder="Escribe o busca un ejercicio..."
+                placeholderTextColor={Theme.colors.onSurfaceVariant}
+                style={styles.exerciseInput}
+              />
 
-              {isDropdownOpen && (
+              {showSuggestions && filteredSuggestions.length > 0 && (
                 <View style={styles.dropdownListContainer}>
-                  <View style={styles.searchBarContainer}>
-                    <Search size={16} color={Theme.colors.onSurfaceVariant} style={styles.searchIcon} />
-                    <TextInput
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      placeholder="Buscar o escribir nuevo..."
-                      placeholderTextColor={Theme.colors.onSurfaceVariant}
-                      style={styles.searchInput}
-                    />
-                  </View>
-
                   <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                    {recentExercises
-                      .filter(ex => ex.toLowerCase().includes(searchQuery.toLowerCase()))
-                      .map((ex) => (
-                        <Pressable
-                          key={ex}
-                          onPress={() => {
-                            setExercise(ex);
-                            setIsDropdownOpen(false);
-                            setSearchQuery('');
-                          }}
-                          style={styles.dropdownItem}
-                        >
-                          <Text style={styles.dropdownItemText}>{ex}</Text>
-                        </Pressable>
-                      ))
-                    }
-                    {searchQuery.trim().length > 0 && 
-                     !recentExercises.some(e => e.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+                    {filteredSuggestions.map((ex) => (
                       <Pressable
+                        key={ex}
                         onPress={() => {
-                          const newEx = searchQuery.trim();
-                          setExercise(newEx);
-                          setIsDropdownOpen(false);
-                          setSearchQuery('');
+                          setExercise(ex);
+                          setShowSuggestions(false);
                         }}
-                        style={[styles.dropdownItem, styles.dropdownItemNew]}
+                        style={styles.dropdownItem}
                       >
-                        <Plus size={14} color={Theme.colors.primary} />
-                        <Text style={styles.dropdownItemNewText}>
-                          {`Crear "${searchQuery.trim()}"`}
-                        </Text>
+                        <Text style={styles.dropdownItemText}>{ex}</Text>
                       </Pressable>
-                    )}
+                    ))}
                   </ScrollView>
                 </View>
               )}
@@ -249,7 +223,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
               style={styles.weightInput}
               placeholder="0"
               placeholderTextColor={Theme.colors.onSurfaceVariant}
-              onFocus={() => setIsDropdownOpen(false)}
+              onFocus={() => setShowSuggestions(false)}
             />
           </View>
           <View style={[styles.section, { flex: 1 }]}>
@@ -261,7 +235,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
               style={styles.weightInput}
               placeholder="1"
               placeholderTextColor={Theme.colors.onSurfaceVariant}
-              onFocus={() => setIsDropdownOpen(false)}
+              onFocus={() => setShowSuggestions(false)}
             />
           </View>
         </View>
@@ -274,7 +248,7 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({ isOpen, onClose, ini
           <Switch
             value={isUnilateral}
             onValueChange={(val) => {
-              setIsDropdownOpen(false);
+              setShowSuggestions(false);
               setIsUnilateral(val);
             }}
             trackColor={{ false: Theme.colors.surfaceContainerHighest, true: Theme.colors.primary }}
@@ -314,10 +288,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 10,
   },
-  dropdownTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  exerciseInput: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 14,
+    color: Theme.colors.onSurface,
     backgroundColor: Theme.colors.surfaceContainerHigh,
     borderRadius: 12,
     borderWidth: 1,
