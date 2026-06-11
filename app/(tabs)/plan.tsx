@@ -21,7 +21,7 @@ export default function PlanScreen() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { setScrolled, setGlobalLoading, setGlobalLoadingMessage } = useHeaderScroll();
+  const { setScrolled, setGlobalLoading, setGlobalLoadingMessage, selectedDate } = useHeaderScroll();
 
   // Reset scroll status when navigating away
   useEffect(() => {
@@ -179,8 +179,7 @@ export default function PlanScreen() {
         }
       };
 
-      const today = getLocalDateString();
-      const logRef = doc(db, `users/${user.uid}/dailyLogs`, today);
+      const logRef = doc(db, `users/${user.uid}/dailyLogs`, selectedDate);
       const logSnap = await getDoc(logRef);
       
       const expireAt = new Date();
@@ -200,7 +199,7 @@ export default function PlanScreen() {
         });
       } else {
         await setDoc(logRef, {
-          id: today,
+          id: selectedDate,
           userId: user.uid,
           date: new Date().toISOString(),
           macros: newMeal.macros,

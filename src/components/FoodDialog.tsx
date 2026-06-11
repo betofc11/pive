@@ -9,9 +9,10 @@ import { analyzeFoodImage, calculateMacrosFromIngredients } from '../services/ge
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore';
-import { formatNum, getLocalDateString, readUriAsBase64 } from '../lib/utils';
+import { formatNum, getLocalDateString, readUriAsBase64, getFormattedDateOnly } from '../lib/utils';
 import { Theme } from '../theme';
 import { saveMealToHealthKit } from '../services/healthKitService';
+import { useHeaderScroll } from '../../app/(tabs)/_layout';
 
 interface Ingredient {
   name: string;
@@ -27,6 +28,7 @@ interface FoodDialogProps {
 
 export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initialData }) => {
   const { user } = useAuth();
+  const { selectedDate } = useHeaderScroll();
   const [selectedImage, setSelectedImage] = useState<{ uri: string; mimeType: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'upload' | 'edit' | 'saving'>('upload');
@@ -181,7 +183,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         });
       }
 
-      const today = getLocalDateString();
+      const today = selectedDate;
       const logId = today; 
       const logRef = doc(db, `users/${user.uid}/dailyLogs`, logId);
       
@@ -418,6 +420,12 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
             </View>
             <Text style={styles.checkboxLabel}>Guardar en comidas frecuentes</Text>
           </Pressable>
+
+          <View style={[styles.dateInfoBox, selectedDate !== getLocalDateString() ? styles.dateWarningBox : null]}>
+            <Text style={styles.dateInfoText}>
+              📅 Registrando para: <Text style={{ color: selectedDate !== getLocalDateString() ? '#fbbf24' : Theme.colors.primary, fontFamily: Theme.fonts.bodyBold }}>{getFormattedDateOnly(selectedDate)}{selectedDate !== getLocalDateString() ? ' (Día Pasado)' : ' (Hoy)'}</Text>
+            </Text>
+          </View>
 
           <Pressable
             onPress={handleSave}
@@ -697,6 +705,24 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
   },
   checkboxLabel: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+  },
+  dateInfoBox: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  dateWarningBox: {
+    backgroundColor: 'rgba(217, 119, 6, 0.15)', // warm amber opacity
+    borderColor: '#fbbf24',
+  },
+  dateInfoText: {
     fontFamily: Theme.fonts.body,
     fontSize: 13,
     color: Theme.colors.onSurface,

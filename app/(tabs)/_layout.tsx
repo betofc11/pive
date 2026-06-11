@@ -5,8 +5,9 @@ import { Tabs, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { Theme } from '../../src/theme';
-import { Sparkles, ClipboardList, BarChart3, Dumbbell, Plus, Utensils, Scale } from 'lucide-react-native';
+import { Sparkles, ClipboardList, BarChart3, Dumbbell, Plus, Utensils, Scale, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { getLocalDateString, addDays, formatDateFriendly, getFormattedDateOnly, getDatePillLabel } from '../../src/lib/utils';
 
 import { FoodDialog } from '../../src/components/FoodDialog';
 import { BodyCompositionDialog } from '../../src/components/BodyCompositionDialog';
@@ -94,7 +95,7 @@ function CustomTabBar({ state, descriptors, navigation, onFabPress }: BottomTabB
   );
 }
 
-// Create a Context for header scroll state
+// Create a Context for header scroll state and selected date
 export const HeaderScrollContext = createContext<{
   scrolled: boolean;
   setScrolled: (scrolled: boolean) => void;
@@ -102,6 +103,8 @@ export const HeaderScrollContext = createContext<{
   setGlobalLoading: (loading: boolean) => void;
   globalLoadingMessage: string;
   setGlobalLoadingMessage: (msg: string) => void;
+  selectedDate: string;
+  setSelectedDate: (date: string) => void;
 }>({
   scrolled: false,
   setScrolled: () => {},
@@ -109,6 +112,8 @@ export const HeaderScrollContext = createContext<{
   setGlobalLoading: () => {},
   globalLoadingMessage: '',
   setGlobalLoadingMessage: () => {},
+  selectedDate: getLocalDateString(),
+  setSelectedDate: () => {},
 });
 
 export const useHeaderScroll = () => useContext(HeaderScrollContext);
@@ -121,6 +126,8 @@ export default function TabsLayout() {
   const [scrolled, setScrolled] = useState(false);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [globalLoadingMessage, setGlobalLoadingMessage] = useState('');
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const isToday = selectedDate === getLocalDateString();
 
   // Animated value for close button rotation
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -160,7 +167,9 @@ export default function TabsLayout() {
       globalLoading,
       setGlobalLoading,
       globalLoadingMessage,
-      setGlobalLoadingMessage
+      setGlobalLoadingMessage,
+      selectedDate,
+      setSelectedDate
     }}>
       <View style={styles.container}>
         {/* Global Header */}
@@ -175,7 +184,34 @@ export default function TabsLayout() {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={styles.logoText}>Pive</Text>
+          </View>
+
+          <View style={styles.dateNavigator}>
+            <TouchableOpacity 
+              onPress={() => setSelectedDate(addDays(selectedDate, -1))} 
+              style={styles.dateNavBtn}
+              activeOpacity={0.7}
+            >
+              <ChevronLeft size={20} color={Theme.colors.onSurface} />
+            </TouchableOpacity>
+            
+            <View style={styles.dateTextContainer}>
+              <Text style={styles.dateNavText}>{getFormattedDateOnly(selectedDate)}</Text>
+              {getDatePillLabel(selectedDate) && (
+                <View style={styles.dateBadge}>
+                  <Text style={styles.dateBadgeText}>{getDatePillLabel(selectedDate)}</Text>
+                </View>
+              )}
+            </View>
+            
+            <TouchableOpacity 
+              onPress={() => !isToday && setSelectedDate(addDays(selectedDate, 1))} 
+              style={[styles.dateNavBtn, isToday && styles.dateNavBtnDisabled]}
+              activeOpacity={isToday ? 1 : 0.7}
+              disabled={isToday}
+            >
+              <ChevronRight size={20} color={Theme.colors.onSurface} />
+            </TouchableOpacity>
           </View>
           <TouchableOpacity 
             onPress={globalLoading ? undefined : () => router.push('/profile')} 
@@ -337,11 +373,48 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
   },
-  logoText: {
-    fontFamily: Theme.fonts.headline,
-    fontSize: 24,
+  dateNavigator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  dateNavBtn: {
+    padding: 4,
+  },
+  dateNavText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+    textAlign: 'center',
+  },
+  dateTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  dateNavBtnDisabled: {
+    opacity: 0.3,
+  },
+  dateBadge: {
+    backgroundColor: Theme.colors.primary + '26', // ~15% opacity purple
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary + '80', // 50% opacity purple border
+  },
+  dateBadgeText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 9,
     color: Theme.colors.primary,
-    letterSpacing: -0.5,
+    textTransform: 'uppercase',
   },
   profileButton: {
     borderRadius: 99,

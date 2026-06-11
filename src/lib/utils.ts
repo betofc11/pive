@@ -14,6 +14,54 @@ export function getLocalDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
+export function addDays(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function formatDateFriendly(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  
+  const todayStr = getLocalDateString();
+  const yesterdayStr = addDays(todayStr, -1);
+  const tomorrowStr = addDays(todayStr, 1);
+  
+  if (dateStr === todayStr) return 'Hoy';
+  if (dateStr === yesterdayStr) return 'Ayer';
+  if (dateStr === tomorrowStr) return 'Mañana';
+  
+  return date.toLocaleDateString('es-ES', { 
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'short' 
+  });
+}
+
+export function getFormattedDateOnly(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('es-ES', { 
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'short' 
+  });
+}
+
+export function getDatePillLabel(dateStr: string): string | null {
+  const todayStr = getLocalDateString();
+  const yesterdayStr = addDays(todayStr, -1);
+  if (dateStr === todayStr) return 'Hoy';
+  if (dateStr === yesterdayStr) return 'Ayer';
+  return null;
+}
+
 export async function readUriAsBase64(uri: string): Promise<string> {
   if (Platform.OS === 'web') {
     if (uri.startsWith('data:')) {

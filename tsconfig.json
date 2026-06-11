@@ -16,6 +16,7 @@
   ],
   "exclude": [
     "node_modules",
-    "web-backup"
+    "web-backup",
+    "functions"
   ]
 }

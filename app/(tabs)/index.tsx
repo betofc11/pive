@@ -7,7 +7,7 @@ import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight } f
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
 import { DailyLog, Meal } from '../../src/types';
-import { formatNum, getLocalDateString } from '../../src/lib/utils';
+import { formatNum, getLocalDateString, formatDateFriendly } from '../../src/lib/utils';
 import { Theme } from '../../src/theme';
 import { MealList } from '../../src/components/MealList';
 import { router } from 'expo-router';
@@ -26,17 +26,19 @@ export default function Dashboard() {
   const [advice, setAdvice] = useState<string>('');
   const [generatingAdvice, setGeneratingAdvice] = useState(false);
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
-  const { setScrolled } = useHeaderScroll();
+  const { setScrolled, selectedDate } = useHeaderScroll();
 
   const dailyLogRef = useRef(dailyLog);
   const profileRef = useRef(profile);
   const userRef = useRef(user);
+  const selectedDateRef = useRef(selectedDate);
 
   useEffect(() => {
     dailyLogRef.current = dailyLog;
     profileRef.current = profile;
     userRef.current = user;
-  }, [dailyLog, profile, user]);
+    selectedDateRef.current = selectedDate;
+  }, [dailyLog, profile, user, selectedDate]);
 
   // Reset scroll status when navigating away
   useEffect(() => {
@@ -46,8 +48,7 @@ export default function Dashboard() {
   // 1. Subscribe to today's DailyLog
   useEffect(() => {
     if (user) {
-      const today = getLocalDateString();
-      const logRef = doc(db, `users/${user.uid}/dailyLogs`, today);
+      const logRef = doc(db, `users/${user.uid}/dailyLogs`, selectedDate);
       
       const unsubscribe = onSnapshot(logRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -63,12 +64,12 @@ export default function Dashboard() {
           setAdvice('');
         }
       }, (error) => {
-        handleFirestoreError(error, OperationType.GET, `users/${user.uid}/dailyLogs/${today}`);
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}/dailyLogs/${selectedDate}`);
       });
 
       return () => unsubscribe();
     }
-  }, [user]);
+  }, [user, selectedDate]);
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
@@ -143,8 +144,8 @@ export default function Dashboard() {
           currentTimeString
         );
         if (newAdvice) {
-          const today = getLocalDateString();
-          const logRef = doc(db, `users/${user.uid}/dailyLogs`, today);
+          const activeDate = selectedDateRef.current;
+          const logRef = doc(db, `users/${user.uid}/dailyLogs`, activeDate);
           await updateDoc(logRef, {
             aiAdvice: newAdvice,
             aiAdviceUpdatedAt: Date.now(),
@@ -258,17 +259,20 @@ export default function Dashboard() {
     return list[Math.floor(Math.random() * list.length)];
   }, [greetingCategory]);
 
-  const todayDisplay = new Date().toLocaleDateString('es-ES', { 
-    weekday: 'long', 
-    day: 'numeric', 
-    month: 'long' 
-  });
+  const todayDisplay = useMemo(() => {
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long' 
+    });
+  }, [selectedDate]);
 
   const handleDeleteMeal = async (mealToDelete: Meal) => {
     if (!user || !dailyLog) return;
     
-    const today = getLocalDateString();
-    const logRef = doc(db, `users/${user.uid}/dailyLogs`, today);
+    const logRef = doc(db, `users/${user.uid}/dailyLogs`, selectedDate);
     
     try {
       const updatedMeals = dailyLog.meals.filter(m => m.id !== mealToDelete.id);
@@ -284,7 +288,7 @@ export default function Dashboard() {
         macros: updatedMacros
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/dailyLogs/${today}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/dailyLogs/${selectedDate}`);
     }
   };
 
@@ -306,9 +310,6 @@ export default function Dashboard() {
             {greetingPrefix} <Text style={styles.highlightText}>{firstName}</Text>!
           </Text>
           <Text style={styles.dateText}>{todayDisplay}</Text>
-        </View>
-        <View style={styles.todayPill}>
-          <Text style={styles.todayText}>Hoy</Text>
         </View>
       </View>
 
@@ -498,21 +499,6 @@ const styles = StyleSheet.create({
     color: Theme.colors.onSurfaceVariant,
     marginTop: 4,
     textTransform: 'capitalize',
-  },
-  todayPill: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  todayText: {
-    fontFamily: Theme.fonts.label,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: Theme.colors.primary,
   },
   onboardingBanner: {
     backgroundColor: Theme.colors.primary + '1a', // 10% primary
