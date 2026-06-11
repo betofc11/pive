@@ -28,6 +28,16 @@ export default function Dashboard() {
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
   const { setScrolled } = useHeaderScroll();
 
+  const dailyLogRef = useRef(dailyLog);
+  const profileRef = useRef(profile);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    dailyLogRef.current = dailyLog;
+    profileRef.current = profile;
+    userRef.current = user;
+  }, [dailyLog, profile, user]);
+
   // Reset scroll status when navigating away
   useEffect(() => {
     return () => setScrolled(false);
@@ -43,14 +53,7 @@ export default function Dashboard() {
         if (docSnap.exists()) {
           const data = docSnap.data() as DailyLog;
           setDailyLog(data);
-          const isErrorAdvice = data.aiAdvice && (
-            data.aiAdvice.includes('Error') ||
-            data.aiAdvice.includes('API key') ||
-            data.aiAdvice.includes('missing') ||
-            data.aiAdvice.includes('GEMINI_API_KEY') ||
-            data.aiAdvice.includes('.env')
-          );
-          if (data.aiAdvice && !isErrorAdvice) {
+          if (data.aiAdvice) {
             setAdvice(data.aiAdvice);
           } else {
             setAdvice('Generando consejo de Pive...');
@@ -107,20 +110,16 @@ export default function Dashboard() {
   });
 
   const fetchAdvice = useCallback(async (force = false) => {
+    const user = userRef.current;
+    const dailyLog = dailyLogRef.current;
+    const profile = profileRef.current;
+
     if (!user || !dailyLog || !profile?.macroGoals) return;
 
     const macrosChanged = !dailyLog.adviceMacros || 
       dailyLog.macros.protein !== dailyLog.adviceMacros.protein ||
       dailyLog.macros.carbs !== dailyLog.adviceMacros.carbs ||
       dailyLog.macros.fats !== dailyLog.adviceMacros.fats;
-
-    const isErrorAdvice = dailyLog.aiAdvice && (
-      dailyLog.aiAdvice.includes('Error') ||
-      dailyLog.aiAdvice.includes('API key') ||
-      dailyLog.aiAdvice.includes('missing') ||
-      dailyLog.aiAdvice.includes('GEMINI_API_KEY') ||
-      dailyLog.aiAdvice.includes('.env')
-    );
 
     const now = new Date();
     const lastUpdatedDate = dailyLog.aiAdviceUpdatedAt ? new Date(dailyLog.aiAdviceUpdatedAt) : null;
@@ -133,7 +132,7 @@ export default function Dashboard() {
     const displayHours = hours % 12 || 12;
     const currentTimeString = `${hours.toString().padStart(2, '0')}:${minutes} (${displayHours}:${minutes} ${ampm})`;
 
-    if (force || macrosChanged || !dailyLog.aiAdvice || isErrorAdvice || periodChanged || timeElapsed) {
+    if (force || macrosChanged || !dailyLog.aiAdvice || periodChanged || timeElapsed) {
       setGeneratingAdvice(true);
       try {
         const newAdvice = await getPiveAdvice(
@@ -160,7 +159,7 @@ export default function Dashboard() {
         setGeneratingAdvice(false);
       }
     }
-  }, [dailyLog, profile, user]);
+  }, []);
 
   // 2. Fetch Gemini Advice when macros, meals, or time periods change
   useEffect(() => {
@@ -169,7 +168,18 @@ export default function Dashboard() {
     } else if (!dailyLog && profile?.macroGoals) {
       setAdvice('¡Registra tu comida para recibir consejos personalizados de Pive!');
     }
-  }, [dailyLog?.macros, dailyLog?.meals, profile?.macroGoals, profile?.bodyMetrics, user, fetchAdvice]);
+  }, [
+    dailyLog?.macros?.protein,
+    dailyLog?.macros?.carbs,
+    dailyLog?.macros?.fats,
+    dailyLog?.meals?.length,
+    profile?.macroGoals?.protein,
+    profile?.macroGoals?.carbs,
+    profile?.macroGoals?.fats,
+    profile?.bodyMetrics?.weight,
+    user?.uid,
+    fetchAdvice
+  ]);
 
   const macros = dailyLog?.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 };
   const goals = profile?.macroGoals || { protein: 160, carbs: 210, fats: 65, calories: 2000 };
@@ -382,12 +392,12 @@ export default function Dashboard() {
               <Sparkles size={20} color={Theme.colors.primary} />
             </Animated.View>
           </TouchableOpacity>
-          {generatingAdvice ? (
+          {generatingAdvice && !advice ? (
             <View style={styles.adviceSkeleton}>
               <Text style={styles.adviceLabelText}>Pive está pensando...</Text>
             </View>
           ) : (
-            <Text style={styles.adviceText}>
+            <Text style={[styles.adviceText, generatingAdvice ? { opacity: 0.6 } : null]}>
               {advice ? `"${advice}"` : 'Analizando tu plan y energía diaria...'}
             </Text>
           )}
