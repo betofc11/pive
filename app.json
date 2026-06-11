@@ -34,7 +34,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Pive",
+      "shortName": "Pive",
+      "description": "Tu Estilo de Vida Inteligente",
+      "themeColor": "#0e0e0e",
+      "backgroundColor": "#0e0e0e",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",
