@@ -5,7 +5,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { collection, query, orderBy, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
 import { StrengthRecord, BodyMetricsHistory } from '../../src/types';
-import { Zap, Dumbbell, Activity, Scale, Plus, Edit2, Trash2 } from 'lucide-react-native';
+import { Zap, Dumbbell, Activity, Scale, Plus, Edit2, Trash2, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { formatNum } from '../../src/lib/utils';
 import { Theme } from '../../src/theme';
 import { RecordDialog } from '../../src/components/RecordDialog';
@@ -18,6 +18,7 @@ export default function StatsScreen() {
   const { user } = useAuth();
   const [records, setRecords] = useState<StrengthRecord[]>([]);
   const [metricsHistory, setMetricsHistory] = useState<BodyMetricsHistory[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const { setScrolled } = useHeaderScroll();
 
   // Reset scroll status when navigating away
@@ -419,55 +420,81 @@ export default function StatsScreen() {
               
               if (exercises.length === 0) return null;
 
+              const isExpanded = !!expandedGroups[group];
+
               return (
                 <View key={group} style={styles.muscleGroupCard}>
-                  <Text style={styles.muscleGroupName}>{group}</Text>
-                  <View style={styles.exerciseGrid}>
-                    {exercises.map((ex) => {
-                      const record = groupRecords[ex];
-                      return (
-                        <View key={ex} style={styles.exerciseCard}>
-                          <View style={styles.exerciseInfo}>
-                            <Text style={styles.exerciseLabel} numberOfLines={1}>
-                              {ex}
-                            </Text>
-                            <View style={styles.exerciseWeightRow}>
-                              <Text style={styles.exerciseWeightValue}>{formatNum(record.weight)}</Text>
-                              <Text style={styles.exerciseWeightUnit}>KG</Text>
-                              {record.reps !== undefined && (
-                                <Text style={styles.exerciseRepsText}>
-                                  x{record.reps} {record.reps === 1 ? 'rep' : 'reps'}
-                                </Text>
-                              )}
-                              {record.isUnilateral && (
-                                <View style={styles.unilateralBadge}>
-                                  <Text style={styles.unilateralBadgeText}>Unilateral</Text>
-                                </View>
-                              )}
+                  <TouchableOpacity
+                    style={styles.muscleGroupHeader}
+                    onPress={() => {
+                      setExpandedGroups(prev => ({
+                        ...prev,
+                        [group]: !prev[group]
+                      }));
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.muscleGroupName}>{group}</Text>
+                    <View style={styles.badgeAndChevronRow}>
+                      <View style={styles.recordPill}>
+                        <Text style={styles.recordPillText}>{exercises.length}</Text>
+                      </View>
+                      {isExpanded ? (
+                        <ChevronUp size={18} color={Theme.colors.primary} />
+                      ) : (
+                        <ChevronDown size={18} color={Theme.colors.primary} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {isExpanded && (
+                    <View style={[styles.exerciseGrid, { marginTop: 12 }]}>
+                      {exercises.map((ex) => {
+                        const record = groupRecords[ex];
+                        return (
+                          <View key={ex} style={styles.exerciseCard}>
+                            <View style={styles.exerciseInfo}>
+                              <Text style={styles.exerciseLabel} numberOfLines={1}>
+                                {ex}
+                              </Text>
+                              <View style={styles.exerciseWeightRow}>
+                                <Text style={styles.exerciseWeightValue}>{formatNum(record.weight)}</Text>
+                                <Text style={styles.exerciseWeightUnit}>KG</Text>
+                                {record.reps !== undefined && (
+                                  <Text style={styles.exerciseRepsText}>
+                                    x{record.reps} {record.reps === 1 ? 'rep' : 'reps'}
+                                  </Text>
+                                )}
+                                {record.isUnilateral && (
+                                  <View style={styles.unilateralBadge}>
+                                    <Text style={styles.unilateralBadgeText}>Unilateral</Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+
+                            <View style={styles.exerciseActions}>
+                              <TouchableOpacity 
+                                style={styles.actionButton}
+                                onPress={() => {
+                                  setEditingRecord(record);
+                                  setIsRecordDialogOpen(true);
+                                }}
+                              >
+                                <Edit2 size={12} color={Theme.colors.onSurfaceVariant} />
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={styles.actionButton}
+                                onPress={() => handleDeleteRecord(record.id)}
+                              >
+                                <Trash2 size={12} color={Theme.colors.error} />
+                              </TouchableOpacity>
                             </View>
                           </View>
-
-                          <View style={styles.exerciseActions}>
-                            <TouchableOpacity 
-                              style={styles.actionButton}
-                              onPress={() => {
-                                setEditingRecord(record);
-                                setIsRecordDialogOpen(true);
-                              }}
-                            >
-                              <Edit2 size={12} color={Theme.colors.onSurfaceVariant} />
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                              style={styles.actionButton}
-                              onPress={() => handleDeleteRecord(record.id)}
-                            >
-                              <Trash2 size={12} color={Theme.colors.error} />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -648,7 +675,31 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.headline,
     fontSize: 16,
     color: Theme.colors.primary,
-    marginBottom: 12,
+  },
+  muscleGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  badgeAndChevronRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recordPill: {
+    backgroundColor: Theme.colors.primary + '1a', // 10% opacity primary
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 99,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordPillText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 11,
+    color: Theme.colors.primary,
   },
   exerciseGrid: {
     gap: 10,
