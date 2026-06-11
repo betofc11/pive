@@ -187,13 +187,16 @@ export default function PlanScreen() {
 
       if (logSnap.exists()) {
         const currentLog = logSnap.data() as DailyLog;
+        const currentMeals = currentLog.meals || [];
+        const currentMacros = currentLog.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 };
+        
         await updateDoc(logRef, {
-          meals: [...currentLog.meals, newMeal],
+          meals: [...currentMeals, newMeal],
           macros: {
-            calories: currentLog.macros.calories + newMeal.macros.calories,
-            protein: currentLog.macros.protein + newMeal.macros.protein,
-            carbs: currentLog.macros.carbs + newMeal.macros.carbs,
-            fats: currentLog.macros.fats + newMeal.macros.fats,
+            calories: (currentMacros.calories || 0) + (newMeal.macros.calories || 0),
+            protein: (currentMacros.protein || 0) + (newMeal.macros.protein || 0),
+            carbs: (currentMacros.carbs || 0) + (newMeal.macros.carbs || 0),
+            fats: (currentMacros.fats || 0) + (newMeal.macros.fats || 0),
           },
           expireAt
         });
@@ -202,7 +205,12 @@ export default function PlanScreen() {
           id: selectedDate,
           userId: user.uid,
           date: new Date().toISOString(),
-          macros: newMeal.macros,
+          macros: {
+            protein: newMeal.macros.protein || 0,
+            carbs: newMeal.macros.carbs || 0,
+            fats: newMeal.macros.fats || 0,
+            calories: newMeal.macros.calories || 0
+          },
           meals: [newMeal],
           expireAt
         });
