@@ -6,7 +6,7 @@ admin.initializeApp();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const FLASH_MODEL = "gemini-1.5-flash";
+const FLASH_MODEL = "gemini-2.5-flash";
 const PRO_MODEL = "gemini-2.5-pro";
 
 // Helper to verify Firebase ID Token in requests
