@@ -50,7 +50,7 @@ const getApiKey = (): string | null => {
 export const analizarComida = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
@@ -176,7 +176,7 @@ export const analizarComida = onRequest(
 export const obtenerConsejoPive = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
@@ -244,7 +244,7 @@ export const obtenerConsejoPive = onRequest(
 export const analizarImagenComida = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
@@ -328,7 +328,7 @@ export const analizarImagenComida = onRequest(
 export const calcularMacrosIngredientes = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
@@ -386,7 +386,7 @@ export const calcularMacrosIngredientes = onRequest(
 export const analizarPlanNutricional = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
@@ -507,7 +507,7 @@ export const analizarPlanNutricional = onRequest(
 export const analizarComposicionCorporal = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
@@ -575,7 +575,7 @@ export const analizarComposicionCorporal = onRequest(
 export const analizarPlanEntrenamiento = onRequest(
   {
     cors: true,
-    minInstances: 1,
+    minInstances: 0,
     secrets: ["GEMINI_API_KEY"],
   },
   async (req: any, res: any) => {
