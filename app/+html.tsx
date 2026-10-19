@@ -13,7 +13,27 @@ const darkPageStyle = `
 html, body {
   background-color: ${Theme.colors.background};
   color-scheme: dark;
+}
+#pive-top-edge {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background-color: ${Theme.colors.background};
+  z-index: 1;
+}
+@media (display-mode: standalone) {
+  #pive-top-edge { display: block; }
+}
+html[data-standalone] #pive-top-edge {
+  display: block;
 }`;
+
+// iOS sets navigator.standalone in home-screen apps; a fallback in case it doesn't match the
+// display-mode media query (the app has no web manifest)
+const standaloneScript = `if (navigator.standalone) document.documentElement.setAttribute('data-standalone', '');`;
 
 export default function Html({ children }: PropsWithChildren) {
   return (
@@ -47,8 +67,18 @@ export default function Html({ children }: PropsWithChildren) {
         */}
         <ScrollViewStyleReset />
         <style id="pive-dark-page" dangerouslySetInnerHTML={{ __html: darkPageStyle }} />
+        <script dangerouslySetInnerHTML={{ __html: standaloneScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {/*
+          iOS 26 home-screen apps blur the top ~40pt of the page (the system "scroll edge effect"),
+          dimming the header. WebKit skips it when a fixed, full-width, solid-colour box taller than
+          10px sits at the top edge, so this one does, only in the installed app. It covers the
+          top 12px of padding every screen leaves empty, under the app's modals (z-index 1).
+        */}
+        <div id="pive-top-edge" />
+        {children}
+      </body>
     </html>
   );
 }
