@@ -1,6 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import { GoogleGenAI, Type } from "@google/genai";
+import { ApiError, GenerateContentParameters, GoogleGenAI, Type } from "@google/genai";
 
 admin.initializeApp();
 
@@ -42,6 +42,33 @@ const verifyAuthToken = async (req: any, res: any): Promise<string | null> => {
 
 const getApiKey = (): string | null => {
   return process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY || null;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const GEMINI_MAX_ATTEMPTS = 3;
+
+// 429 (rate limit / quota) and 503 (model overloaded) are usually transient on Gemini's side
+const isTransientGeminiError = (error: unknown): boolean => {
+  if (error instanceof ApiError) {
+    return error.status === 429 || error.status === 503;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /RESOURCE_EXHAUSTED|UNAVAILABLE|overloaded/i.test(message);
+};
+
+// Calls Gemini, retrying transient errors with a linear backoff (1s, 2s) before giving up
+const generateContentWithRetry = async (ai: GoogleGenAI, params: GenerateContentParameters) => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error) {
+      if (attempt >= GEMINI_MAX_ATTEMPTS || !isTransientGeminiError(error)) throw error;
+      const backoffMs = attempt * 1000;
+      console.warn(`Gemini transient error (attempt ${attempt}/${GEMINI_MAX_ATTEMPTS}), retrying in ${backoffMs}ms:`, error);
+      await sleep(backoffMs);
+    }
+  }
 };
 
 // 2. Daily Advice function (Flash model)
@@ -96,7 +123,7 @@ export const obtenerConsejoPive = onRequest(
         Métricas corporales de fondo: ${JSON.stringify(bodyMetrics || 'No disponibles')}
       `;
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: FLASH_MODEL,
         contents: prompt,
         config: {
@@ -155,7 +182,7 @@ export const analizarImagenComida = onRequest(
         parts.push({ inlineData: { data: base64Data, mimeType } });
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: FLASH_MODEL,
         contents: [{ parts }],
         config: {
@@ -232,7 +259,7 @@ export const calcularMacrosIngredientes = onRequest(
         Responde en formato JSON.
       `;
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: FLASH_MODEL,
         contents: prompt,
         config: {
@@ -297,7 +324,7 @@ export const analizarPlanNutricional = onRequest(
         parts.push({ inlineData: { data: base64Data, mimeType } });
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: PRO_MODEL,
         contents: [{ parts }],
         config: {
@@ -423,7 +450,7 @@ export const analizarComposicionCorporal = onRequest(
         parts.push({ inlineData: { data: base64Data, mimeType } });
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: PRO_MODEL,
         contents: [{ parts }],
         config: {
@@ -491,7 +518,7 @@ export const analizarPlanEntrenamiento = onRequest(
         }
       });
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: PRO_MODEL,
         contents: [{ parts }],
         config: {
