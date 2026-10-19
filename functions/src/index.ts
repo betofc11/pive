@@ -112,7 +112,7 @@ export const obtenerConsejoPive = onRequest(
   }
 );
 
-// 3. Analyze Food Image (Flash model)
+// 3. Analyze Food from an image, a text description, or both (Flash model)
 export const analizarImagenComida = onRequest(
   {
     cors: true,
@@ -124,9 +124,11 @@ export const analizarImagenComida = onRequest(
     if (!uid) return;
 
     try {
-      const { base64Data, mimeType } = req.body;
-      if (!base64Data || !mimeType) {
-        res.status(400).json({ error: "Missing parameters: base64Data or mimeType" });
+      const { base64Data, mimeType, text } = req.body;
+      const description = typeof text === "string" ? text.trim() : "";
+      const hasImage = Boolean(base64Data && mimeType);
+      if (!hasImage && !description) {
+        res.status(400).json({ error: "Missing parameters: provide text or base64Data with mimeType" });
         return;
       }
 
@@ -139,21 +141,23 @@ export const analizarImagenComida = onRequest(
       const ai = new GoogleGenAI({ apiKey });
 
       const prompt = `
-        Analiza esta imagen de comida. Identifica el plato, los ingredientes visibles con una cantidad aproximada, y calcula los macronutrientes totales (calorías, proteínas, carbohidratos, grasas).
+        Analiza esta comida a partir de la imagen y/o la descripción del usuario. Identifica el plato, los ingredientes con una cantidad aproximada, y calcula los macronutrientes totales (calorías, proteínas, carbohidratos, grasas).
+        Si hay imagen y descripción, la descripción manda: úsala para corregir cantidades, ingredientes o forma de preparación que la imagen no muestra.
         REGLAS DE IDIOMA: Todos los campos de texto del JSON (como 'name' del plato y 'name' de los ingredientes) DEBEN estar estrictamente en español.
         Responde en formato JSON.
       `;
 
+      const parts: any[] = [{ text: prompt }];
+      if (description) {
+        parts.push({ text: `Descripción del usuario: ${description}` });
+      }
+      if (hasImage) {
+        parts.push({ inlineData: { data: base64Data, mimeType } });
+      }
+
       const response = await ai.models.generateContent({
         model: FLASH_MODEL,
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              { inlineData: { data: base64Data, mimeType } }
-            ]
-          }
-        ],
+        contents: [{ parts }],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
