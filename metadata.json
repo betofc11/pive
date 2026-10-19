@@ -1,5 +1,0 @@
-{
-  "name": "Pive",
-  "description": "Optimiza tu rendimiento con Pive. Sincroniza tu plan nutricional, analiza tus macros con Gemini y sigue tus récords de fuerza.",
-  "requestFramePermissions": ["camera"]
-}

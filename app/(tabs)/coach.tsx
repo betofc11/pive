@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Linki
 import { Alert } from '../../src/lib/alert';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import { Upload, Camera, Image as ImageIcon, ChevronDown, ChevronUp, Play, CheckCircle2, AlertCircle, Trash2, Clock, Check, ExternalLink, Trophy, Plus, Square } from 'lucide-react-native';
 import { analyzeWorkoutPlan } from '../../src/services/geminiService';

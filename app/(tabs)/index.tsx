@@ -8,7 +8,7 @@ import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight } f
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
 import { DailyLog, Meal } from '../../src/types';
-import { formatNum, getLocalDateString, formatDateFriendly } from '../../src/lib/utils';
+import { formatNum } from '../../src/lib/utils';
 import { Theme } from '../../src/theme';
 import { MealList } from '../../src/components/MealList';
 import { router } from 'expo-router';
@@ -164,13 +164,17 @@ export default function Dashboard() {
   }, []);
 
   // 2. Fetch Gemini Advice when macros, meals, or time periods change
+  const hasDailyLog = Boolean(dailyLog);
+  const hasMacroGoals = Boolean(profile?.macroGoals);
   useEffect(() => {
-    if (dailyLog && profile?.macroGoals) {
+    if (hasDailyLog && hasMacroGoals) {
       fetchAdvice(false);
-    } else if (!dailyLog && profile?.macroGoals) {
+    } else if (!hasDailyLog && hasMacroGoals) {
       setAdvice('¡Registra tu comida para recibir consejos personalizados de Pive!');
     }
   }, [
+    hasDailyLog,
+    hasMacroGoals,
     dailyLog?.macros?.protein,
     dailyLog?.macros?.carbs,
     dailyLog?.macros?.fats,
@@ -183,8 +187,14 @@ export default function Dashboard() {
     fetchAdvice
   ]);
 
-  const macros = dailyLog?.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 };
-  const goals = profile?.macroGoals || { protein: 160, carbs: 210, fats: 65, calories: 2000 };
+  const macros = useMemo(
+    () => dailyLog?.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 },
+    [dailyLog?.macros]
+  );
+  const goals = useMemo(
+    () => profile?.macroGoals || { protein: 160, carbs: 210, fats: 65, calories: 2000 },
+    [profile?.macroGoals]
+  );
 
   const remaining = {
     protein: Math.max(0, goals.protein - macros.protein),

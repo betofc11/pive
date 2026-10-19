@@ -3,13 +3,12 @@ import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator } from
 import { Alert } from '../../src/lib/alert';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Upload, Camera, Image as ImageIcon, ChevronDown, ChevronUp, Plus, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { analyzeNutritionPlan, calculateMacrosFromIngredients } from '../../src/services/geminiService';
 import { useAuth } from '../../src/hooks/useAuth';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
-import { formatNum, getLocalDateString, readUriAsBase64 } from '../../src/lib/utils';
+import { formatNum, readUriAsBase64 } from '../../src/lib/utils';
 import { Meal } from '../../src/types';
 import { SavedMealsSection } from '../../src/components/SavedMealsSection';
 import { FoodDialog } from '../../src/components/FoodDialog';

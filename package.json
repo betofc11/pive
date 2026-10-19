@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "lint": "expo lint",
-    "deploy:functions": "npm run --prefix functions build && npx firebase-tools deploy --only functions"
+    "deploy:functions": "npm run --prefix functions build && npx firebase-tools deploy --only functions",
+    "deploy:rules": "npx firebase-tools deploy --only firestore:rules"
   },
   "dependencies": {
     "@expo-google-fonts/epilogue": "^0.4.2",

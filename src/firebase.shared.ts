@@ -28,6 +28,7 @@ interface FirestoreErrorInfo {
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   // Use require dynamically to prevent circular dependencies during module loading
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { auth } = require('./firebase');
 
   const errInfo: FirestoreErrorInfo = {
