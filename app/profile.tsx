@@ -11,10 +11,12 @@ import { router } from 'expo-router';
 import { PersonalInfoSection } from '../src/components/profile/PersonalInfoSection';
 import { AppleHealthSection } from '../src/components/profile/AppleHealthSection';
 import { ActivityHistory } from '../src/components/profile/ActivityHistory';
+import { useActivityHistory } from '../src/hooks/useActivityHistory';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, user } = useAuth();
+  const activity = useActivityHistory(user?.uid, profile);
 
   const handleLogout = () => {
     Alert.alert(
@@ -73,7 +75,7 @@ export default function ProfileScreen() {
           <AppleHealthSection uid={user?.uid} currentMetrics={profile?.bodyMetrics} />
         )}
 
-        <ActivityHistory />
+        <ActivityHistory items={activity} />
 
         {/* Logout Button */}
         <TouchableOpacity 

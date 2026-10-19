@@ -1,38 +1,49 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { History, Edit3, Save } from 'lucide-react-native';
+import { History, Scale, Trophy, ClipboardList, Dumbbell, LucideIcon } from 'lucide-react-native';
 import { Theme } from '../../theme';
+import { ActivityItem, ActivityType, formatActivityTime } from '../../lib/activity';
 import { sectionStyles } from './sectionStyles';
 
-// Placeholder content: these two entries are fixed, not read from the user's data
-export function ActivityHistory() {
+const ICONS: Record<ActivityType, { Icon: LucideIcon; color: string }> = {
+  metrics: { Icon: Scale, color: Theme.colors.primary },
+  record: { Icon: Trophy, color: '#e9c46a' },
+  nutritionPlan: { Icon: ClipboardList, color: Theme.colors.secondary },
+  workoutPlan: { Icon: Dumbbell, color: Theme.colors.tertiary },
+};
+
+/** Recent activity: body metrics updates, strength records and plan uploads. */
+export function ActivityHistory({ items }: { items: ActivityItem[] }) {
   return (
     <View style={sectionStyles.section}>
       <View style={sectionStyles.sectionTitleRow}>
-        <History size={20} color={Theme.colors.secondary} />
-        <Text style={sectionStyles.sectionTitle}>Historial de Actividad</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <History size={20} color={Theme.colors.secondary} />
+          <Text style={sectionStyles.sectionTitle}>Historial de Actividad</Text>
+        </View>
       </View>
 
       <View style={styles.activityList}>
-        <View style={styles.activityItem}>
-          <View style={[styles.activityIconWrapper, { backgroundColor: Theme.colors.primary + '1a' }]}>
-            <Edit3 size={16} color={Theme.colors.primary} />
-          </View>
-          <View style={styles.activityDetails}>
-            <Text style={styles.activityTitle}>Perfil Actualizado</Text>
-            <Text style={styles.activityTime}>Hoy, 10:30 AM</Text>
-          </View>
-        </View>
+        {items.map((item) => {
+          const { Icon, color } = ICONS[item.type];
+          return (
+            <View key={item.id} style={styles.activityItem}>
+              <View style={[styles.activityIconWrapper, { backgroundColor: color + '1a' }]}>
+                <Icon size={16} color={color} />
+              </View>
+              <View style={styles.activityDetails}>
+                <Text style={styles.activityTitle}>{item.title}</Text>
+                <Text style={styles.activityTime}>{formatActivityTime(item.timestamp)}</Text>
+              </View>
+            </View>
+          );
+        })}
 
-        <View style={styles.activityItem}>
-          <View style={[styles.activityIconWrapper, { backgroundColor: Theme.colors.secondary + '1a' }]}>
-            <Save size={16} color={Theme.colors.secondary} />
-          </View>
-          <View style={styles.activityDetails}>
-            <Text style={styles.activityTitle}>Plan Nutricional Subido</Text>
-            <Text style={styles.activityTime}>Ayer, 6:45 PM</Text>
-          </View>
-        </View>
+        {items.length === 0 && (
+          <Text style={styles.emptyText}>
+            Todavía no hay actividad. Aquí verás tus cambios de composición, récords y planes subidos.
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -60,6 +71,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activityDetails: {
+    flex: 1,
     gap: 2,
   },
   activityTitle: {
@@ -70,6 +82,11 @@ const styles = StyleSheet.create({
   activityTime: {
     fontFamily: Theme.fonts.label,
     fontSize: 10,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  emptyText: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
     color: Theme.colors.onSurfaceVariant,
   },
 });
