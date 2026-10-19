@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ScrollView, Pressable, TouchableOpacity, Animat
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../src/hooks/useAuth';
 import { getPiveAdvice } from '../../src/services/geminiService';
+import { removeMealFromDailyLog } from '../../src/services/dailyLogService';
 import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight } from 'lucide-react-native';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
@@ -271,22 +272,9 @@ export default function Dashboard() {
 
   const handleDeleteMeal = async (mealToDelete: Meal) => {
     if (!user || !dailyLog) return;
-    
-    const logRef = doc(db, `users/${user.uid}/dailyLogs`, selectedDate);
-    
-    try {
-      const updatedMeals = dailyLog.meals.filter(m => m.id !== mealToDelete.id);
-      const updatedMacros = {
-        calories: Math.max(0, dailyLog.macros.calories - mealToDelete.macros.calories),
-        protein: Math.max(0, dailyLog.macros.protein - mealToDelete.macros.protein),
-        carbs: Math.max(0, dailyLog.macros.carbs - mealToDelete.macros.carbs),
-        fats: Math.max(0, dailyLog.macros.fats - mealToDelete.macros.fats),
-      };
 
-      await updateDoc(logRef, {
-        meals: updatedMeals,
-        macros: updatedMacros
-      });
+    try {
+      await removeMealFromDailyLog(user.uid, selectedDate, mealToDelete.id);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/dailyLogs/${selectedDate}`);
     }

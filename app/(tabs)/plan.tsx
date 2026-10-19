@@ -7,15 +7,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Upload, Camera, Image as ImageIcon, ChevronDown, ChevronUp, Plus, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { analyzeNutritionPlan, calculateMacrosFromIngredients } from '../../src/services/geminiService';
 import { useAuth } from '../../src/hooks/useAuth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
 import { formatNum, getLocalDateString, readUriAsBase64 } from '../../src/lib/utils';
-import { DailyLog, Meal } from '../../src/types';
+import { Meal } from '../../src/types';
 import { SavedMealsSection } from '../../src/components/SavedMealsSection';
 import { FoodDialog } from '../../src/components/FoodDialog';
 import { Theme } from '../../src/theme';
 import { useHeaderScroll } from './_layout';
 import { saveMealToHealthKit } from '../../src/services/healthKitService';
+import { addMealToDailyLog } from '../../src/services/dailyLogService';
 
 export default function PlanScreen() {
   const { user, profile } = useAuth();
@@ -179,43 +180,8 @@ export default function PlanScreen() {
         }
       };
 
-      const logRef = doc(db, `users/${user.uid}/dailyLogs`, selectedDate);
-      const logSnap = await getDoc(logRef);
-      
-      const expireAt = new Date();
-      expireAt.setDate(expireAt.getDate() + 90); // 90 days TTL
+      await addMealToDailyLog(user.uid, selectedDate, newMeal);
 
-      if (logSnap.exists()) {
-        const currentLog = logSnap.data() as DailyLog;
-        const currentMeals = currentLog.meals || [];
-        const currentMacros = currentLog.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 };
-        
-        await updateDoc(logRef, {
-          meals: [...currentMeals, newMeal],
-          macros: {
-            calories: (currentMacros.calories || 0) + (newMeal.macros.calories || 0),
-            protein: (currentMacros.protein || 0) + (newMeal.macros.protein || 0),
-            carbs: (currentMacros.carbs || 0) + (newMeal.macros.carbs || 0),
-            fats: (currentMacros.fats || 0) + (newMeal.macros.fats || 0),
-          },
-          expireAt
-        });
-      } else {
-        await setDoc(logRef, {
-          id: selectedDate,
-          userId: user.uid,
-          date: new Date().toISOString(),
-          macros: {
-            protein: newMeal.macros.protein || 0,
-            carbs: newMeal.macros.carbs || 0,
-            fats: newMeal.macros.fats || 0,
-            calories: newMeal.macros.calories || 0
-          },
-          meals: [newMeal],
-          expireAt
-        });
-      }
-      
       // Sync to HealthKit
       saveMealToHealthKit(newMeal.name, newMeal.macros).catch(err => {
         console.warn('[HealthKit] Error syncing meal from plan.tsx:', err);
