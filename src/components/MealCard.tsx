@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Utensils, Trash2 } from 'lucide-react-native';
@@ -12,15 +12,19 @@ interface MealCardProps {
 }
 
 export const MealCard: React.FC<MealCardProps> = ({ meal, onDelete }) => {
+  // Older meals stored a device-local URI (file:// or blob:) that no longer loads
+  const [imageFailed, setImageFailed] = useState(false);
+
   return (
     <View style={styles.card}>
       <View style={styles.content}>
-        {meal.imageUrl ? (
-          <Image 
-            source={{ uri: meal.imageUrl }} 
-            style={styles.image} 
+        {meal.imageUrl && !imageFailed ? (
+          <Image
+            source={{ uri: meal.imageUrl }}
+            style={styles.image}
             contentFit="cover"
             transition={200}
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <View style={styles.fallbackIcon}>

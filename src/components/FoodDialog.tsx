@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { Alert } from '../lib/alert';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, setDoc, collection, getDocs, query } from 'firebase/firestore';
 import { formatNum, getLocalDateString, readUriAsBase64, getFormattedDateOnly } from '../lib/utils';
+import { createMealThumbnail } from '../lib/thumbnail';
 import { Theme } from '../theme';
 import { saveMealToHealthKit } from '../services/healthKitService';
 import { addMealToDailyLog } from '../services/dailyLogService';
@@ -41,6 +42,22 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
   
   const [savedMeals, setSavedMeals] = useState<any[]>([]);
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+
+  // The thumbnail takes a couple of seconds on big photos, so it starts as soon as the photo
+  // is picked and saving just awaits it. It's optional: on failure the meal is saved without it.
+  const thumbnailRef = useRef<{ uri: string; promise: Promise<string> } | null>(null);
+  const getThumbnail = (uri: string) => {
+    if (thumbnailRef.current?.uri !== uri) {
+      thumbnailRef.current = {
+        uri,
+        promise: createMealThumbnail(uri).catch(err => {
+          console.warn('Error creating meal thumbnail:', err);
+          return '';
+        }),
+      };
+    }
+    return thumbnailRef.current.promise;
+  };
 
   useEffect(() => {
     if (user && isOpen) {
@@ -95,6 +112,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
           uri: asset.uri,
           mimeType: asset.mimeType || 'image/jpeg',
         });
+        getThumbnail(asset.uri);
       }
     } catch (err) {
       console.error('Error selecting image', err);
@@ -120,6 +138,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
           uri: asset.uri,
           mimeType: asset.mimeType || 'image/jpeg',
         });
+        getThumbnail(asset.uri);
       }
     } catch (err) {
       console.error('Error taking photo', err);
@@ -190,12 +209,14 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         });
       }
 
+      const imageUrl = selectedImage ? await getThumbnail(selectedImage.uri) : '';
+
       const newMeal = {
         id: Date.now().toString(),
         name: foodName || 'Comida',
         time: new Date().toISOString(),
         macros: finalMacros,
-        imageUrl: selectedImage?.uri || ''
+        imageUrl
       };
 
       await addMealToDailyLog(user.uid, selectedDate, newMeal);
