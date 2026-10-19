@@ -8,10 +8,11 @@ import { Modal } from './Modal';
 import { analyzeFood, calculateMacrosFromIngredients } from '../services/geminiService';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query } from 'firebase/firestore';
 import { formatNum, getLocalDateString, readUriAsBase64, getFormattedDateOnly } from '../lib/utils';
 import { Theme } from '../theme';
 import { saveMealToHealthKit } from '../services/healthKitService';
+import { addMealToDailyLog } from '../services/dailyLogService';
 import { useHeaderScroll } from '../../app/(tabs)/_layout';
 
 interface Ingredient {
@@ -190,12 +191,6 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         });
       }
 
-      const today = selectedDate;
-      const logId = today; 
-      const logRef = doc(db, `users/${user.uid}/dailyLogs`, logId);
-      
-      const logDoc = await getDoc(logRef);
-      
       const newMeal = {
         id: Date.now().toString(),
         name: foodName || 'Comida',
@@ -204,33 +199,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         imageUrl: selectedImage?.uri || ''
       };
 
-      const expireAt = new Date();
-      expireAt.setDate(expireAt.getDate() + 90); // 90 days TTL
-
-      if (logDoc.exists()) {
-        const currentData = logDoc.data();
-        const currentMacros = currentData.macros || { protein: 0, carbs: 0, fats: 0, calories: 0 };
-        
-        await updateDoc(logRef, {
-          macros: {
-            protein: currentMacros.protein + (finalMacros.protein || 0),
-            carbs: currentMacros.carbs + (finalMacros.carbs || 0),
-            fats: currentMacros.fats + (finalMacros.fats || 0),
-            calories: currentMacros.calories + (finalMacros.calories || 0)
-          },
-          meals: [...(currentData.meals || []), newMeal],
-          expireAt
-        });
-      } else {
-        await setDoc(logRef, {
-          id: logId,
-          userId: user.uid,
-          date: new Date().toISOString(),
-          macros: finalMacros,
-          meals: [newMeal],
-          expireAt
-        });
-      }
+      await addMealToDailyLog(user.uid, selectedDate, newMeal);
 
       // Sync to HealthKit
       saveMealToHealthKit(foodName || 'Comida', finalMacros).catch(err => {
