@@ -103,6 +103,15 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
    npx tsc --noEmit
    ```
 
+6. **Tests** (Jest con `jest-expo`)
+   ```bash
+   npm test                 # unitarios: fechas (src/lib/utils) y llamadas a las Cloud Functions (geminiService)
+   npm run test:emulator    # integración: transacciones del log diario y reglas de Firestore, contra los emuladores
+   ```
+   - Los tests corren en la zona horaria `America/New_York` (`jest.global-setup.js`), así que los casos de "fecha local vs UTC" y de horario de verano se prueban de verdad en cualquier máquina.
+   - `test:emulator` levanta los emuladores de Firestore y Auth (requiere **Java 21**) con el proyecto de prueba `demo-pive`, que nunca toca datos reales. Usa la misma base y las mismas `firestore.rules` que producción.
+   - GitHub Actions (`.github/workflows/ci.yml`) corre lint, tipos y ambos tipos de tests en cada PR y en cada push a `main`.
+
 ## 🚢 Despliegue
 
 - **Web**: Vercel despliega cada push a `main` y crea una preview por cada PR.

@@ -16,5 +16,16 @@
       "database": "ai-studio-331e3929-266e-4062-bdd5-b4cbf0b60c7b",
       "rules": "firestore.rules"
     }
-  ]
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    }
+  }
 }
