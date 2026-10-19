@@ -61,7 +61,7 @@ Todo cuelga de `users/{uid}`, y las reglas solo dejan a cada usuario leer y escr
 
 ### Cloud Functions
 
-Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer …`):
+Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer …`). Si Gemini responde 429 (límite de uso) o 503 (modelo saturado), reintentan hasta 3 veces antes de devolver el error:
 
 | Función | Qué hace | Modelo |
 |---|---|---|
@@ -112,5 +112,9 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
   npm run deploy:functions
   ```
   Si un cambio toca a la vez una función y la app, **despliega primero las funciones**: así la app nueva nunca llama a una versión vieja de la API.
-- **Reglas de Firestore**: `firebase.json` no incluye la sección `firestore`, así que `firebase deploy` no publica `firestore.rules`; hay que publicarlas desde la consola de Firebase.
+- **Reglas de Firestore**: `firestore.rules` es la fuente de verdad y se publica en la base de datos de la app (la que figura en `firebase.json`):
+  ```bash
+  npm run deploy:rules
+  ```
+  Esto **reemplaza** las reglas que haya en la consola. Si alguna vez las editas ahí, copia el cambio a `firestore.rules` para no perderlo en el próximo deploy. Un `firebase deploy` sin `--only` también las publica.
 - **iOS / Android**: las apps instaladas no cambian hasta que generes y publiques una build nueva.

@@ -10,5 +10,11 @@
         "firestore-debug.log"
       ]
     }
+  ],
+  "firestore": [
+    {
+      "database": "ai-studio-331e3929-266e-4062-bdd5-b4cbf0b60c7b",
+      "rules": "firestore.rules"
+    }
   ]
 }
