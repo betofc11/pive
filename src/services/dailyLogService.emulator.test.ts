@@ -9,21 +9,9 @@ import { auth, db } from '../firebase';
 import { Meal } from '../types';
 import { addMealToDailyLog, removeMealFromDailyLog } from './dailyLogService';
 
-jest.mock('../firebase', () => {
-  const { initializeApp } = require('firebase/app');
-  const { getAuth, connectAuthEmulator } = require('firebase/auth');
-  const { getFirestore, connectFirestoreEmulator } = require('firebase/firestore');
-  const config = require('../../firebase-applet-config.json');
-
-  const app = initializeApp({ projectId: 'demo-pive', apiKey: 'demo-key' });
-  // Same named database as the app, so firestore.rules apply as in production
-  const db = getFirestore(app, config.firestoreDatabaseId);
-  const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
-  connectFirestoreEmulator(db, host, Number(port));
-  const auth = getAuth(app);
-  connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
-  return { db, auth };
-});
+// jest.mock factories can't use imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('../firebase', () => require('../test/emulatorFirebase'));
 
 jest.setTimeout(30000);
 
