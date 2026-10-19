@@ -21,8 +21,13 @@ export default function Html({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        {/* viewport-fit=cover makes iOS report the safe areas (status bar, home indicator) the layout pads for */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+        {/*
+          No viewport-fit=cover on purpose: in the iOS home-screen app it moves the page under the
+          status bar without growing its height (leaving a gap at the bottom), and iOS blurs whatever
+          sits under the status bar. Without it the page starts below the status bar, whose
+          background is the dark html/body.
+        */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
         {/* Tell the browser the page is dark even when the device is in light mode */}
         <meta name="color-scheme" content="dark" />
