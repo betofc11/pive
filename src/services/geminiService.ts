@@ -73,7 +73,8 @@ export const getPiveAdvice = async (
       dailyMacros,
       goals,
       bodyMetrics,
-      meals,
+      // Only what the advice needs: meals carry a photo thumbnail that would bloat the Gemini prompt
+      meals: meals?.map(({ name, time, macros }) => ({ name, time, macros })),
       currentTime
     });
     return result?.advice || '';
