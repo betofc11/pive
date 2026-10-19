@@ -45,8 +45,8 @@ export const analyzeNutritionPlan = async (input: { base64Data?: string; mimeTyp
   return await callCloudFunction('analizarPlanNutricional', input);
 };
 
-export const analyzeFoodImage = async (base64Data: string, mimeType: string) => {
-  return await callCloudFunction('analizarImagenComida', { base64Data, mimeType });
+export const analyzeFood = async (input: { base64Data?: string; mimeType?: string; text?: string }) => {
+  return await callCloudFunction('analizarImagenComida', input);
 };
 
 export const calculateMacrosFromIngredients = async (ingredients: any[]) => {

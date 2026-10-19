@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Camera, Image as ImageIcon, Plus, Trash2, Bookmark, AlertCircle, Check } from 'lucide-react-native';
 import { Modal } from './Modal';
-import { analyzeFoodImage, calculateMacrosFromIngredients } from '../services/geminiService';
+import { analyzeFood, calculateMacrosFromIngredients } from '../services/geminiService';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore';
@@ -30,6 +30,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
   const { user } = useAuth();
   const { selectedDate } = useHeaderScroll();
   const [selectedImage, setSelectedImage] = useState<{ uri: string; mimeType: string } | null>(null);
+  const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'upload' | 'edit' | 'saving'>('upload');
   
@@ -49,6 +50,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         setMacros(initialData.macros || null);
         setStep('edit');
         setSelectedImage(initialData.imageUrl ? { uri: initialData.imageUrl, mimeType: 'image/jpeg' } : null);
+        setDescription('');
         setSaveAsFavorite(true);
       } else {
         setStep('upload');
@@ -56,6 +58,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         setIngredients([]);
         setMacros(null);
         setSelectedImage(null);
+        setDescription('');
         setSaveAsFavorite(false);
         setError(null);
       }
@@ -124,23 +127,27 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     }
   };
 
+  const canAnalyze = Boolean(selectedImage || description.trim());
+
   const handleAnalyze = async () => {
-    if (!selectedImage) return;
+    if (!canAnalyze) return;
     setLoading(true);
     setError(null);
     try {
-      const base64Data = await readUriAsBase64(selectedImage.uri);
+      const imageInput = selectedImage
+        ? { base64Data: await readUriAsBase64(selectedImage.uri), mimeType: selectedImage.mimeType }
+        : {};
 
-      const result = await analyzeFoodImage(base64Data, selectedImage.mimeType);
-      
+      const result = await analyzeFood({ ...imageInput, text: description.trim() || undefined });
+
       setFoodName(result.name || 'Comida Desconocida');
       setIngredients(result.ingredients || []);
       setMacros(result.macros || null);
       setStep('edit');
     } catch (err) {
       console.error("Error analyzing food:", err);
-      setError("Error al analizar la imagen. Intenta de nuevo.");
-      Alert.alert('Error', 'La IA no pudo analizar la imagen. Ingresa la comida de forma manual.');
+      setError("Error al analizar la comida. Intenta de nuevo.");
+      Alert.alert('Error', 'La IA no pudo analizar la comida. Ingresa la comida de forma manual.');
     } finally {
       setLoading(false);
     }
@@ -233,6 +240,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       onClose();
       // Reset state
       setSelectedImage(null);
+      setDescription('');
       setStep('upload');
       setIngredients([]);
       setMacros(null);
@@ -323,14 +331,29 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
             </View>
           )}
 
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>
+              {selectedImage ? 'Agrega una nota (opcional)' : 'O describe lo que comiste'}
+            </Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              style={[styles.formInput, styles.descriptionInput]}
+              placeholder={selectedImage ? 'Ej. sin aceite, el pollo eran 200 g' : 'Ej. 2 huevos revueltos y una tostada con aguacate'}
+              placeholderTextColor={Theme.colors.onSurfaceVariant}
+              multiline
+              maxLength={500}
+            />
+          </View>
+
           <View style={styles.footerButtons}>
             <Pressable style={styles.manualButton} onPress={handleManualEntry}>
               <Text style={styles.manualButtonText}>Entrada Manual</Text>
             </Pressable>
 
             <Pressable
-              style={[styles.analyzeButton, (!selectedImage || loading) ? styles.disabledButton : null]}
-              disabled={!selectedImage || loading}
+              style={[styles.analyzeButton, (!canAnalyze || loading) ? styles.disabledButton : null]}
+              disabled={!canAnalyze || loading}
               onPress={handleAnalyze}
             >
               {loading ? (
@@ -346,7 +369,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       {step === 'edit' && (
         <View style={styles.container}>
           <Pressable style={styles.backButton} onPress={() => setStep('upload')}>
-            <Text style={styles.backButtonText}>← Volver a subir imagen</Text>
+            <Text style={styles.backButtonText}>← Volver</Text>
           </Pressable>
 
           {error && (
@@ -605,6 +628,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  descriptionInput: {
+    minHeight: 72,
+    textAlignVertical: 'top',
   },
   ingredientsHeader: {
     flexDirection: 'row',
