@@ -25,7 +25,6 @@ export default function StatsScreen() {
   useEffect(() => {
     return () => setScrolled(false);
   }, [setScrolled]);
-  const [_loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<StrengthRecord | null>(null);
@@ -52,7 +51,6 @@ export default function StatsScreen() {
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/stats`);
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   }, [user]);

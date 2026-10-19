@@ -4,8 +4,10 @@ import { auth } from '../firebase';
 
 let GoogleSignin: any = null;
 try {
+  // require() inside try/catch so a missing native module (Expo Go) doesn't crash the app
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
-} catch (err) {
+} catch {
   // Gracefully handle missing native module in non-dev environments (like Expo Go)
 }
 

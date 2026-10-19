@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, ActivityIndicator, Switch, ScrollView } from 'react-native';
 import { Modal } from './Modal';
-import { Dumbbell, Plus, Search, ChevronDown, Lock } from 'lucide-react-native';
+import { Dumbbell, Lock } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';

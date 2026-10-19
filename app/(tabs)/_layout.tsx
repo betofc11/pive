@@ -7,7 +7,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { Theme } from '../../src/theme';
 import { Sparkles, ClipboardList, BarChart3, Dumbbell, Plus, Utensils, Scale, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { getLocalDateString, addDays, formatDateFriendly, getFormattedDateOnly, getDatePillLabel } from '../../src/lib/utils';
+import { getLocalDateString, addDays, getFormattedDateOnly, getDatePillLabel } from '../../src/lib/utils';
 
 import { FoodDialog } from '../../src/components/FoodDialog';
 import { BodyCompositionDialog } from '../../src/components/BodyCompositionDialog';

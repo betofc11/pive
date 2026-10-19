@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, Pressable, TextInput, ActivityIndicator } from 
 import { Alert } from '../lib/alert';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Upload, FileText, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { Modal } from './Modal';
 import { analyzeBodyComposition } from '../services/geminiService';
