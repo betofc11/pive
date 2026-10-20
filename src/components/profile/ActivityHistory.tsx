@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { History, Scale, Trophy, ClipboardList, Dumbbell, LucideIcon } from 'lucide-react-native';
+import { History, Scale, Trophy, Flame, ClipboardList, Dumbbell, LucideIcon } from 'lucide-react-native';
 import { Theme } from '../../theme';
 import { ActivityItem, ActivityType, formatActivityTime } from '../../lib/activity';
 import { sectionStyles } from './sectionStyles';
@@ -8,11 +8,12 @@ import { sectionStyles } from './sectionStyles';
 const ICONS: Record<ActivityType, { Icon: LucideIcon; color: string }> = {
   metrics: { Icon: Scale, color: Theme.colors.primary },
   record: { Icon: Trophy, color: '#e9c46a' },
+  workout: { Icon: Flame, color: '#f4a261' },
   nutritionPlan: { Icon: ClipboardList, color: Theme.colors.secondary },
   workoutPlan: { Icon: Dumbbell, color: Theme.colors.tertiary },
 };
 
-/** Recent activity: body metrics updates, strength records and plan uploads. */
+/** Recent activity: body metrics updates, strength records, finished workouts and plan uploads. */
 export function ActivityHistory({ items }: { items: ActivityItem[] }) {
   return (
     <View style={sectionStyles.section}>
@@ -33,7 +34,9 @@ export function ActivityHistory({ items }: { items: ActivityItem[] }) {
               </View>
               <View style={styles.activityDetails}>
                 <Text style={styles.activityTitle}>{item.title}</Text>
-                <Text style={styles.activityTime}>{formatActivityTime(item.timestamp)}</Text>
+                <Text style={styles.activityTime}>
+                  {formatActivityTime(item.timestamp)}{item.detail ? ` · ${item.detail}` : ''}
+                </Text>
               </View>
             </View>
           );
@@ -41,7 +44,7 @@ export function ActivityHistory({ items }: { items: ActivityItem[] }) {
 
         {items.length === 0 && (
           <Text style={styles.emptyText}>
-            Todavía no hay actividad. Aquí verás tus cambios de composición, récords y planes subidos.
+            Todavía no hay actividad. Aquí verás tus cambios de composición, récords, entrenamientos y planes subidos.
           </Text>
         )}
       </View>

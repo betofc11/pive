@@ -96,10 +96,14 @@ export default function CoachScreen() {
   };
 
   const handleFinishWorkout = () => {
-    if (!user) return;
+    if (!user || !activeSession) return;
+    // A session with nothing checked off isn't saved to the history (e.g. one started by mistake)
+    const anyDone = activeSession.exercises.some((ex) => ex.done);
     Alert.alert(
       'Terminar Entrenamiento',
-      '¿Estás seguro de que deseas finalizar la rutina de hoy?',
+      anyDone
+        ? '¿Estás seguro de que deseas finalizar la rutina de hoy?'
+        : 'No marcaste ningún ejercicio, así que no se guardará en tu historial. ¿Terminar de todos modos?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -107,11 +111,14 @@ export default function CoachScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await finishWorkoutSession(user.uid);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('¡Excelente Trabajo!', 'Tu entrenamiento ha sido guardado. ¡Sigue así!');
+              const saved = await finishWorkoutSession(user.uid, activeSession);
+              if (saved) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('¡Excelente Trabajo!', 'Tu entrenamiento ha sido guardado. ¡Sigue así!');
+              }
             } catch (err) {
-              console.error('Error clearing workout session:', err);
+              console.error('Error finishing workout session:', err);
+              Alert.alert('No se pudo terminar', 'Tu entrenamiento sigue activo. Intenta de nuevo.');
             }
           }
         }

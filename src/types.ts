@@ -152,3 +152,11 @@ export interface ActiveExercise extends WorkoutExercise {
   done: boolean;
 }
 
+/** A finished workout session, kept in users/{uid}/workoutHistory */
+export interface CompletedWorkout extends ActiveWorkoutSession {
+  id: string;
+  userId: string;
+  finishedAt: number;
+  date: string; // ISO string of finishedAt
+}
+

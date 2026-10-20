@@ -1,6 +1,6 @@
 // Runs in America/New_York (see jest.global-setup.js)
-import { buildActivityItems, formatActivityTime, MAX_ACTIVITY_ITEMS } from './activity';
-import { BodyMetricsHistory, StrengthRecord } from '../types';
+import { buildActivityItems, formatActivityTime, formatDuration, MAX_ACTIVITY_ITEMS } from './activity';
+import { BodyMetricsHistory, CompletedWorkout, StrengthRecord } from '../types';
 
 const metrics = (id: string, date: string, weight: number): BodyMetricsHistory => ({
   id, userId: 'u1', weight, date, createdAt: Date.parse(date),
@@ -8,12 +8,21 @@ const metrics = (id: string, date: string, weight: number): BodyMetricsHistory =
 const record = (id: string, date: string, exercise: string, weight: number): StrengthRecord => ({
   id, userId: 'u1', exercise, weight, date, muscleGroups: [],
 });
+const workout = (date: string, minutes: number, done: boolean[]): CompletedWorkout => {
+  const finishedAt = Date.parse(date);
+  const startedAt = finishedAt - minutes * 60_000;
+  return {
+    id: String(startedAt), userId: 'u1', dayName: 'Día 1 - Pecho', startedAt, finishedAt, date,
+    exercises: done.map((isDone, i) => ({ name: `Ejercicio ${i}`, sets: '3', reps: '10', description: '', youtubeUrl: '', done: isDone })),
+  };
+};
 
 describe('buildActivityItems', () => {
-  it('merges metrics, records and plan uploads, most recent first', () => {
+  it('merges metrics, records, workouts and plan uploads, most recent first', () => {
     const items = buildActivityItems(
       [metrics('m1', '2026-10-18T12:00:00.000Z', 77.4)],
       [record('r1', '2026-10-19T12:00:00.000Z', 'Press de Banca', 80)],
+      [workout('2026-10-20T12:00:00.000Z', 52, [true, true, false])],
       {
         nutritionalPlan: { name: 'Plan', calories: 1910, protein: 163, carbs: 152, fats: 74, extractedAt: Date.parse('2026-10-17T12:00:00.000Z') },
         workoutPlan: { name: 'Rutina', days: [], extractedAt: Date.parse('2026-10-16T12:00:00.000Z') },
@@ -21,6 +30,7 @@ describe('buildActivityItems', () => {
     );
 
     expect(items.map((i) => [i.type, i.title])).toEqual([
+      ['workout', 'Entrenamiento Completado · Día 1 - Pecho'],
       ['record', 'Nuevo Récord · Press de Banca 80 kg'],
       ['metrics', 'Composición Actualizada · 77,4 kg'],
       ['nutritionPlan', 'Plan Nutricional Subido'],
@@ -30,14 +40,31 @@ describe('buildActivityItems', () => {
 
   it(`keeps only the ${MAX_ACTIVITY_ITEMS} most recent`, () => {
     const many = Array.from({ length: 8 }, (_, i) => metrics(`m${i}`, `2026-10-0${i + 1}T12:00:00.000Z`, 70 + i));
-    const items = buildActivityItems(many, [], null);
+    const items = buildActivityItems(many, [], [], null);
     expect(items).toHaveLength(MAX_ACTIVITY_ITEMS);
     expect(items[0].id).toBe('metrics-m7');
   });
 
   it('skips entries with an invalid date and plans that were never uploaded', () => {
-    const items = buildActivityItems([metrics('bad', 'not a date', 70)], [], { nutritionalPlan: undefined, workoutPlan: undefined });
+    const items = buildActivityItems([metrics('bad', 'not a date', 70)], [], [], { nutritionalPlan: undefined, workoutPlan: undefined });
     expect(items).toEqual([]);
+  });
+
+  it("shows a finished workout's duration and how many exercises were done", () => {
+    const [item] = buildActivityItems([], [], [workout('2026-10-20T12:00:00.000Z', 52, [true, true, false])], null);
+    expect(item.detail).toBe('52 min · 2/3 ejercicios');
+  });
+});
+
+describe('formatDuration', () => {
+  it('uses minutes, then hours and minutes', () => {
+    expect(formatDuration(52 * 60_000)).toBe('52 min');
+    expect(formatDuration(85 * 60_000)).toBe('1 h 25 min');
+    expect(formatDuration(120 * 60_000)).toBe('2 h');
+  });
+
+  it('never says 0 min', () => {
+    expect(formatDuration(10_000)).toBe('1 min');
   });
 });
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
-import { BodyMetricsHistory, StrengthRecord, UserProfile } from '../types';
+import { BodyMetricsHistory, CompletedWorkout, StrengthRecord, UserProfile } from '../types';
 import { buildActivityItems, MAX_ACTIVITY_ITEMS } from '../lib/activity';
 
 // Latest entries of a user subcollection ordered by its ISO `date`, kept up to date
@@ -24,13 +24,14 @@ function useLatestByDate<T>(uid: string | undefined, subcollection: string) {
   return entries;
 }
 
-/** The user's recent activity, from real data: metrics updates, strength records and plan uploads. */
+/** The user's recent activity, from real data: metrics updates, strength records, finished workouts and plan uploads. */
 export function useActivityHistory(uid: string | undefined, profile: UserProfile | null) {
   const metricsHistory = useLatestByDate<BodyMetricsHistory>(uid, 'bodyMetricsHistory');
   const records = useLatestByDate<StrengthRecord>(uid, 'strengthRecords');
+  const workouts = useLatestByDate<CompletedWorkout>(uid, 'workoutHistory');
 
   return useMemo(
-    () => buildActivityItems(metricsHistory, records, profile),
-    [metricsHistory, records, profile],
+    () => buildActivityItems(metricsHistory, records, workouts, profile),
+    [metricsHistory, records, workouts, profile],
   );
 }
