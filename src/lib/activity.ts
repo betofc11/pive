@@ -1,21 +1,32 @@
-import { BodyMetricsHistory, StrengthRecord, UserProfile } from '../types';
+import { BodyMetricsHistory, CompletedWorkout, StrengthRecord, UserProfile } from '../types';
 import { formatNum } from './utils';
 
-export type ActivityType = 'metrics' | 'record' | 'nutritionPlan' | 'workoutPlan';
+export type ActivityType = 'metrics' | 'record' | 'workout' | 'nutritionPlan' | 'workoutPlan';
 
 export interface ActivityItem {
   id: string;
   type: ActivityType;
   title: string;
   timestamp: number;
+  detail?: string; // shown after the time, e.g. "52 min · 5/6 ejercicios"
 }
 
 export const MAX_ACTIVITY_ITEMS = 5;
 
-/** Most recent first: body metrics updates, strength records and plan uploads. */
+/** "52 min", "1 h 25 min" or "2 h"; at least 1 min. */
+export function formatDuration(ms: number): string {
+  const totalMins = Math.max(1, Math.round(ms / 60_000));
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours === 0) return `${mins} min`;
+  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
+}
+
+/** Most recent first: body metrics updates, strength records, finished workouts and plan uploads. */
 export function buildActivityItems(
   metricsHistory: BodyMetricsHistory[],
   records: StrengthRecord[],
+  workouts: CompletedWorkout[],
   profile: Pick<UserProfile, 'nutritionalPlan' | 'workoutPlan'> | null,
 ): ActivityItem[] {
   const items: ActivityItem[] = [
@@ -30,6 +41,13 @@ export function buildActivityItems(
       type: 'record',
       title: `Nuevo Récord · ${record.exercise} ${formatNum(record.weight)} kg`,
       timestamp: Date.parse(record.date),
+    })),
+    ...workouts.map((workout): ActivityItem => ({
+      id: `workout-${workout.id}`,
+      type: 'workout',
+      title: `Entrenamiento Completado · ${workout.dayName}`,
+      timestamp: workout.finishedAt,
+      detail: `${formatDuration(workout.finishedAt - workout.startedAt)} · ${workout.exercises.filter((ex) => ex.done).length}/${workout.exercises.length} ejercicios`,
     })),
   ];
 

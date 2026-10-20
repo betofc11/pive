@@ -1,6 +1,6 @@
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ActiveWorkoutSession, WorkoutDay } from '../types';
+import { ActiveWorkoutSession, CompletedWorkout, WorkoutDay } from '../types';
 
 const getUserRef = (uid: string) => doc(db, 'users', uid);
 
@@ -28,5 +28,29 @@ export const toggleExerciseDone = (uid: string, session: ActiveWorkoutSession, i
   return updateDoc(getUserRef(uid), { activeWorkoutSession: { ...session, exercises } });
 };
 
-export const finishWorkoutSession = (uid: string) =>
-  updateDoc(getUserRef(uid), { activeWorkoutSession: null });
+/**
+ * Ends the session and, if any exercise was done, saves it to the workout history.
+ * Returns whether it was saved.
+ */
+export const finishWorkoutSession = async (uid: string, session: ActiveWorkoutSession) => {
+  const batch = writeBatch(db);
+  batch.update(getUserRef(uid), { activeWorkoutSession: null });
+
+  const saved = session.exercises.some((ex) => ex.done);
+  if (saved) {
+    // Keyed by the start time, so finishing the same session twice saves it once
+    const id = String(session.startedAt);
+    const finishedAt = Date.now();
+    const workout: CompletedWorkout = {
+      ...session,
+      id,
+      userId: uid,
+      finishedAt,
+      date: new Date(finishedAt).toISOString(),
+    };
+    batch.set(doc(db, `users/${uid}/workoutHistory`, id), workout);
+  }
+
+  await batch.commit();
+  return saved;
+};
