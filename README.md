@@ -19,7 +19,7 @@
 | App | [Expo](https://expo.dev/) SDK 54 · React Native 0.81 (New Architecture) · React 19 · TypeScript |
 | Navegación | [Expo Router](https://docs.expo.dev/router/introduction/) (rutas por archivos, typed routes, React Compiler) |
 | Auth y datos | [Firebase](https://firebase.google.com/) Auth (email/contraseña y Google) + Firestore |
-| IA | Cloud Functions v2 (Node 22) + [Gemini](https://ai.google.dev/) 2.5 Flash / Pro (`@google/genai`) |
+| IA | Cloud Functions v2 (Node 22) + [Gemini](https://ai.google.dev/) 3.5 Flash-Lite / 3.8 Flash (`@google/genai`) |
 | UI | `react-native-svg` (gráficas), `lucide-react-native` (iconos), Epilogue + Plus Jakarta Sans |
 | Salud | `react-native-health` (Apple HealthKit) |
 | Web | Export estático de Expo, desplegado en [Vercel](https://vercel.com/) |
@@ -65,12 +65,12 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
 
 | Función | Qué hace | Modelo |
 |---|---|---|
-| `obtenerConsejoPive` | Consejo según los macros y comidas del día | Flash |
-| `analizarImagenComida` | Comida desde foto, descripción o ambas → nombre, ingredientes y macros | Flash |
-| `calcularMacrosIngredientes` | Macros a partir de una lista de ingredientes | Flash |
-| `analizarPlanNutricional` | Estructura un plan nutricional (imagen, PDF o texto) | Pro |
-| `analizarComposicionCorporal` | Extrae peso, % grasa y masa muscular de un reporte | Pro |
-| `analizarPlanEntrenamiento` | Estructura una rutina de entrenamiento | Pro |
+| `obtenerConsejoPive` | Consejo según los macros y comidas del día | `gemini-3.5-flash-lite` |
+| `analizarImagenComida` | Comida desde foto, descripción o ambas → nombre, ingredientes y macros | `gemini-3.5-flash-lite` |
+| `calcularMacrosIngredientes` | Macros a partir de una lista de ingredientes | `gemini-3.5-flash-lite` |
+| `analizarPlanNutricional` | Estructura un plan nutricional (imagen, PDF o texto) | `gemini-3.8-flash` |
+| `analizarComposicionCorporal` | Extrae peso, % grasa y masa muscular de un reporte | `gemini-3.8-flash` |
+| `analizarPlanEntrenamiento` | Estructura una rutina de entrenamiento | `gemini-3.8-flash` |
 
 ## 📦 Desarrollo local
 
