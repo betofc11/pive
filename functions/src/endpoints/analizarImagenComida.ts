@@ -1,9 +1,7 @@
-import type { Part } from "@google/genai";
 import { aiEndpoint } from "../http";
 import { recordUsage } from "../usage";
-import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
-import { FOOD_SCHEMA } from "../ai/schemas";
-import { FOOD_INSTRUCTION, normalizeFoodAnalysis } from "../ai/tasks/food";
+import { requireAi } from "../ai/gemini";
+import { estimateFood } from "../ai/estimateFood";
 
 // Food from an image, a text description, or both (light model).
 // Response: { name, macros, ingredients (each with its macros), assumptions, mentionedSlot }. `macros` is the sum of the ingredients.
@@ -19,24 +17,11 @@ export const analizarImagenComida = aiEndpoint("analizarImagenComida", "Error an
   const ai = requireAi(res);
   if (!ai) return;
 
-  const parts: Part[] = [];
-  if (description) {
-    parts.push({ text: `Descripción del usuario: ${description}` });
-  }
-  if (hasImage) {
-    parts.push({ inlineData: { data: base64Data, mimeType } });
-  }
-
-  const response = await generateContentWithRetry(ai, {
-    model: MODELS.light,
-    contents: [{ role: "user", parts }],
-    config: {
-      systemInstruction: FOOD_INSTRUCTION,
-      responseMimeType: "application/json",
-      responseSchema: FOOD_SCHEMA,
-    },
+  const { analysis, usageMetadata, model } = await estimateFood(ai, {
+    description,
+    image: hasImage ? { data: base64Data, mimeType } : undefined,
   });
-  await recordUsage(uid, "food", response.usageMetadata, MODELS.light, localDate);
+  await recordUsage(uid, "food", usageMetadata, model, localDate);
 
-  res.status(200).json(normalizeFoodAnalysis(JSON.parse(response.text || "{}")));
+  res.status(200).json(analysis);
 });

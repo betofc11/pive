@@ -5,11 +5,11 @@
 ## 🚀 Características
 
 - **Dashboard diario**: macros y calorías del día frente a tus metas, tus comidas y un consejo de IA según lo que llevas. Puedes moverte entre días para ver o registrar fechas pasadas.
-- **Registro de comidas con IA**: saca una foto del plato, describe lo que comiste ("2 huevos revueltos y una tostada") o combina ambas. La IA propone ingredientes y macros, y tú los corriges antes de guardar. También hay entrada manual y comidas frecuentes.
-- **Plan nutricional**: sube tu plan (imagen, PDF o texto) y la IA extrae macros objetivo, opciones de comidas e intercambios. Registras una opción del plan con un toque.
-- **Composición corporal**: peso, % de grasa y masa muscular con gráficas de evolución. Se pueden cargar a mano o desde la foto/PDF de un reporte.
+- **Registro de comidas con IA**: saca una foto del plato, describe lo que comiste ("2 huevos revueltos y una tostada") o combina ambas. La IA propone los ingredientes con los macros de cada uno y dice lo que supuso, y tú los corriges antes de guardar. Si solo cambias una cantidad, los macros se recalculan en la app, sin volver a llamar a la IA. También hay entrada manual y comidas frecuentes.
+- **Plan nutricional**: sube tu plan (imagen, PDF o texto) y la IA extrae las metas de macros, los tiempos de comida con sus opciones (con macros por ingrediente), los intercambios y las restricciones. Registras una opción del plan con un toque.
+- **Composición corporal**: peso, % de grasa y masa muscular con gráficas de evolución. Se pueden cargar a mano o desde la foto/PDF de un reporte (con la fecha del reporte, si la trae).
 - **Récords de fuerza**: tus máximos organizados por grupo muscular.
-- **Coach**: sube tu rutina y la IA la organiza en días y ejercicios (con link a YouTube), con una sesión de entrenamiento activa para ir marcando lo que haces.
+- **Coach**: sube tu rutina y la IA la organiza en días y ejercicios, con nombres en español y una búsqueda en YouTube por ejercicio, más una sesión de entrenamiento activa para ir marcando lo que haces.
 - **Apple Health** (iOS): sincroniza comidas y métricas corporales.
 
 ## 🛠️ Stack
@@ -42,7 +42,13 @@ pive/
 │   ├── firebase.ts           # Inicialización de Firebase (+ firebase.web.ts para web)
 │   ├── theme.ts              # Colores, fuentes y espaciados
 │   └── types.ts              # Modelos de datos
-├── functions/src/index.ts    # Cloud Functions con Gemini
+├── functions/                # Cloud Functions con Gemini (lo único que se despliega a Firebase)
+│   ├── src/shared/           # TypeScript puro que usan la app y las Functions: macros, tiempos de comida,
+│   │                         #   ingredientes, ejercicios, fechas y los contratos de los endpoints (api.ts)
+│   ├── src/ai/               # Cliente de Gemini, bloques de prompt, esquemas e instrucciones de cada tarea
+│   ├── src/endpoints/        # Un archivo por endpoint (index.ts solo los re-exporta)
+│   ├── src/usage.ts          # Registro de tokens y costo por usuario
+│   └── evals/                # Evals de calidad de la IA (se corren a mano, con tu key)
 ├── firestore.rules           # Reglas de seguridad de Firestore
 ├── firebase-applet-config.json  # Config pública del cliente de Firebase
 ├── app.json                  # Config de Expo (bundle IDs, plugins, permisos de HealthKit)
@@ -58,19 +64,24 @@ Todo cuelga de `users/{uid}`, y las reglas solo dejan a cada usuario leer y escr
 - `users/{uid}`: perfil, metas de macros, plan nutricional, rutina y sesión activa.
 - `dailyLogs/{YYYY-MM-DD}`: comidas y macros del día (se borran solos a los 90 días con el TTL de `expireAt`).
 - `strengthRecords`, `bodyMetricsHistory`, `savedMeals`.
+- `usage/{YYYY-MM-DD}`: tokens y costo estimado de la IA por función y por día. Solo lo escriben las Cloud Functions; el usuario lo puede leer.
 
 ### Cloud Functions
 
-Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer …`). Si Gemini responde 429 (límite de uso) o 503 (modelo saturado), reintentan hasta 3 veces antes de devolver el error:
+Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer …`). Si Gemini responde 429 (límite de uso) o 503 (modelo saturado), reintentan hasta 3 veces antes de devolver el error. Los tipos exactos de cada respuesta están en `functions/src/shared/api.ts`.
 
 | Función | Qué hace | Modelo |
 |---|---|---|
-| `obtenerConsejoPive` | Consejo según los macros y comidas del día | `gemini-3.5-flash-lite` |
-| `analizarImagenComida` | Comida desde foto, descripción o ambas → nombre, ingredientes y macros | `gemini-3.5-flash-lite` |
-| `calcularMacrosIngredientes` | Macros a partir de una lista de ingredientes | `gemini-3.5-flash-lite` |
-| `analizarPlanNutricional` | Estructura un plan nutricional (imagen, PDF o texto) | `gemini-3.8-flash` |
-| `analizarComposicionCorporal` | Extrae peso, % grasa y masa muscular de un reporte | `gemini-3.8-flash` |
-| `analizarPlanEntrenamiento` | Estructura una rutina de entrenamiento | `gemini-3.8-flash` |
+| `obtenerConsejoPive` | Consejo según los macros y comidas del día → `{ advice }` | `gemini-3.5-flash-lite` |
+| `analizarImagenComida` | Comida desde foto, descripción o ambas → nombre, ingredientes con sus macros, total, supuestos y `mentionedSlot` (el tiempo de comida, solo si el usuario lo dijo) | `gemini-3.5-flash-lite` |
+| `calcularMacrosIngredientes` | Macros de una lista de ingredientes → totales y desglose. Solo manda a la IA los que no traen macros | `gemini-3.5-flash-lite` |
+| `analizarPlanNutricional` | Estructura un plan nutricional (imagen, PDF o texto): metas, tiempos (`slot`), opciones con macros por ingrediente, intercambios, equivalencias y restricciones | `gemini-3.8-flash` |
+| `analizarComposicionCorporal` | Extrae peso, % grasa, masa muscular y la fecha del reporte (`measuredAt`) | `gemini-3.8-flash` |
+| `analizarPlanEntrenamiento` | Estructura una rutina en días y ejercicios, con nombres canónicos en español y grupos musculares de una lista fija | `gemini-3.8-flash` |
+
+- **Los números los calcula el código:** el total de una comida es la suma de sus ingredientes, y el de una opción del plan, la de los suyos. Toda respuesta de la IA se valida y se normaliza antes de devolverla.
+- **Prompts:** las instrucciones van en `systemInstruction` y los datos en `contents`. Los bloques comunes (`PIVE_CORE`, `NUTRITION_RULES`, `TRAINING_RULES`) están en `functions/src/ai/prompts/`.
+- **Registro de uso:** cada llamada a Gemini suma sus tokens (de entrada, cacheados, de salida y de *thinking*) y un costo estimado en `users/{uid}/usage/{YYYY-MM-DD}`. La fecha es la local del usuario (`localDate`, que la app manda en cada llamada). Si el registro falla, la respuesta sale igual. Los precios están en `MODEL_PRICES` (`functions/src/usageCost.ts`): verifícalos en la [página oficial de precios](https://ai.google.dev/gemini-api/docs/pricing).
 
 ## 📦 Desarrollo local
 
@@ -100,17 +111,20 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
 5. **Lint y tipos**
    ```bash
    npm run lint
-   npx tsc --noEmit
+   npx tsc --noEmit                 # la app (incluye lo que importa de functions/src/shared)
+   npx tsc --noEmit -p functions    # las Cloud Functions
    ```
 
 6. **Tests** (Jest con `jest-expo`)
    ```bash
-   npm test                 # unitarios: fechas (src/lib/utils) y llamadas a las Cloud Functions (geminiService)
-   npm run test:emulator    # integración: transacciones del log diario y reglas de Firestore, contra los emuladores
+   npm test                 # unitarios: utilidades de la app, código compartido (functions/src/shared) y lógica pura de las Functions
+   npm run test:emulator    # integración: transacciones, registro de uso y reglas de Firestore, contra los emuladores
    ```
    - Los tests corren en la zona horaria `America/New_York` (`jest.global-setup.js`), así que los casos de "fecha local vs UTC" y de horario de verano se prueban de verdad en cualquier máquina.
    - `test:emulator` levanta los emuladores de Firestore y Auth (requiere **Java 21**) con el proyecto de prueba `demo-pive`, que nunca toca datos reales. Usa la misma base y las mismas `firestore.rules` que producción.
    - GitHub Actions (`.github/workflows/ci.yml`) corre lint, tipos y ambos tipos de tests en cada PR y en cada push a `main`.
+
+7. **Evals de IA** (opcional, con tu key; cuestan un poco): `npm run --prefix functions eval:food`. Más detalles en [`functions/evals/README.md`](functions/evals/README.md).
 
 ## 🚢 Despliegue
 
