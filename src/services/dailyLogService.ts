@@ -47,6 +47,29 @@ export const addMealToDailyLog = (uid: string, date: string, meal: Meal) =>
     }
   });
 
+/**
+ * Changes the slot (or the time) of a logged meal. The day's totals stay as they are: the macros don't change.
+ */
+export const updateMealInDailyLog = (
+  uid: string,
+  date: string,
+  mealId: string,
+  patch: Partial<Pick<Meal, 'slot' | 'slotSource' | 'time'>>,
+) =>
+  runTransaction(db, async (tx) => {
+    const logRef = getLogRef(uid, date);
+    const snap = await tx.get(logRef);
+    if (!snap.exists()) return;
+
+    const log = snap.data() as DailyLog;
+    const meals = log.meals || [];
+    if (!meals.some((m) => m.id === mealId)) return;
+
+    // Firestore rejects undefined values
+    const changes = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+    tx.update(logRef, { meals: meals.map((m) => (m.id === mealId ? { ...m, ...changes } : m)) });
+  });
+
 export const removeMealFromDailyLog = (uid: string, date: string, mealId: string) =>
   runTransaction(db, async (tx) => {
     const logRef = getLogRef(uid, date);

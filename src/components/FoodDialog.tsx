@@ -14,6 +14,10 @@ import { Theme } from '../theme';
 import { saveMealToHealthKit } from '../services/healthKitService';
 import { addMealToDailyLog } from '../services/dailyLogService';
 import { useHeaderScroll } from '../../app/(tabs)/_layout';
+import { useDailyLog } from '../hooks/useDailyLog';
+import { SLOT_REASON_LABELS, slotSourceFromReason, suggestSlotForNewMeal } from '../lib/mealSlots';
+import { SlotChips } from './SlotChips';
+import type { MealSlot, SlotSource } from '../../functions/src/shared/meals/slots';
 import { mealMacrosFromIngredients } from '../../functions/src/shared/ingredients';
 import { type Macros, roundMacros } from '../../functions/src/shared/macros';
 import {
@@ -36,8 +40,10 @@ interface FoodDialogProps {
 }
 
 export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initialData }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { selectedDate } = useHeaderScroll();
+  // The day's meals, to suggest the slot: only read while the dialog is open
+  const dayLog = useDailyLog(isOpen ? user?.uid : undefined, selectedDate);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; mimeType: string } | null>(null);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,6 +56,9 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
   const [macros, setMacros] = useState<Macros | null>(null);
   const [assumptions, setAssumptions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The slot the user said in the description ("mi almuerzo"), and the chip they tapped (null: the suggestion)
+  const [mentionedSlot, setMentionedSlot] = useState<MealSlot | null>(null);
+  const [slotChoice, setSlotChoice] = useState<MealSlot | null>(null);
   
   const [savedMeals, setSavedMeals] = useState<any[]>([]);
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
@@ -77,6 +86,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         setIngredients(toEditableIngredients(initialData.ingredients));
         setMacros(initialData.macros || null);
         setAssumptions([]);
+        setMentionedSlot(null);
+        setSlotChoice(null);
         setStep('edit');
         setSelectedImage(initialData.imageUrl ? { uri: initialData.imageUrl, mimeType: 'image/jpeg' } : null);
         setDescription('');
@@ -87,6 +98,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         setIngredients([]);
         setMacros(null);
         setAssumptions([]);
+        setMentionedSlot(null);
+        setSlotChoice(null);
         setSelectedImage(null);
         setDescription('');
         setSaveAsFavorite(false);
@@ -176,6 +189,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       setIngredients(toEditableIngredients(result.ingredients));
       setMacros(result.macros || null);
       setAssumptions(result.assumptions || []);
+      setMentionedSlot(result.mentionedSlot ?? null);
+      setSlotChoice(null);
       setStep('edit');
     } catch (err) {
       console.error("Error analyzing food:", err);
@@ -191,6 +206,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     setIngredients([]);
     setMacros(null);
     setAssumptions([]);
+    setMentionedSlot(null);
+    setSlotChoice(null);
     setError(null);
     setStep('edit');
   };
@@ -200,6 +217,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     setIngredients(toEditableIngredients(meal.ingredients));
     setMacros(meal.macros || null);
     setAssumptions([]);
+    setMentionedSlot(null);
+    setSlotChoice(null);
     setError(null);
     setStep('edit');
   };
@@ -219,6 +238,18 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       }
       finalMacros = roundMacros(finalMacros);
 
+      // The chip the user tapped; otherwise the suggestion again, now that the size is known
+      let slot: MealSlot;
+      let slotSource: SlotSource;
+      if (slotChoice) {
+        slot = slotChoice;
+        slotSource = slotChoice === slotSuggestion.slot ? slotSourceFromReason(slotSuggestion.reason) : 'user';
+      } else {
+        const final = suggestSlotForNewMeal({ ...slotInput, calories: finalMacros.calories });
+        slot = final.slot;
+        slotSource = slotSourceFromReason(final.reason);
+      }
+
       if (saveAsFavorite && foodName.trim()) {
         const mealId = initialData?.id || Date.now().toString();
         await setDoc(doc(db, `users/${user.uid}/savedMeals`, mealId), {
@@ -237,7 +268,9 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         name: foodName || 'Comida',
         time: new Date().toISOString(),
         macros: finalMacros,
-        imageUrl
+        imageUrl,
+        slot,
+        slotSource,
       };
 
       await addMealToDailyLog(user.uid, selectedDate, newMeal);
@@ -255,6 +288,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       setIngredients([]);
       setMacros(null);
       setAssumptions([]);
+      setMentionedSlot(null);
+      setSlotChoice(null);
       setSaveAsFavorite(false);
       setError(null);
     } catch (err: any) {
@@ -286,6 +321,11 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
 
   const filledIngredients = ingredients.filter((ingredient) => ingredient.name.trim());
   const knownMacros = mealMacrosFromIngredients(filledIngredients) ?? macros;
+
+  const isToday = selectedDate === getLocalDateString();
+  const slotInput = { isToday, dayMeals: dayLog?.meals, profile, mentionedSlot };
+  const slotSuggestion = suggestSlotForNewMeal({ ...slotInput, calories: knownMacros?.calories ?? null });
+  const selectedSlot = slotChoice ?? slotSuggestion.slot;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Registrar Comida">
@@ -464,6 +504,14 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
               </Text>
             </View>
           )}
+
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>¿Qué comida es?</Text>
+            <SlotChips value={selectedSlot} onChange={setSlotChoice} />
+            <Text style={styles.slotReason}>
+              {selectedSlot === slotSuggestion.slot ? SLOT_REASON_LABELS[slotSuggestion.reason] : 'Elegido por ti'}
+            </Text>
+          </View>
 
           {assumptions.length > 0 && (
             <View style={styles.assumptionsBox}>
@@ -731,6 +779,11 @@ const styles = StyleSheet.create({
     color: Theme.colors.primary,
     flexShrink: 1,
     textAlign: 'right',
+  },
+  slotReason: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
   },
   assumptionsBox: {
     backgroundColor: Theme.colors.surfaceContainerHigh,

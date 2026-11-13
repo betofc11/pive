@@ -9,6 +9,7 @@ import { Theme } from '../src/theme';
 import { ArrowLeft, LogOut } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { PersonalInfoSection } from '../src/components/profile/PersonalInfoSection';
+import { MealStructureSection } from '../src/components/profile/MealStructureSection';
 import { AppleHealthSection } from '../src/components/profile/AppleHealthSection';
 import { ActivityHistory } from '../src/components/profile/ActivityHistory';
 import { useActivityHistory } from '../src/hooks/useActivityHistory';
@@ -70,6 +71,8 @@ export default function ProfileScreen() {
         </View>
 
         <PersonalInfoSection uid={user?.uid} profile={profile} />
+
+        <MealStructureSection uid={user?.uid} profile={profile} />
 
         {Platform.OS === 'ios' && (
           <AppleHealthSection uid={user?.uid} currentMetrics={profile?.bodyMetrics} />

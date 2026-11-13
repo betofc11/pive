@@ -6,7 +6,15 @@ import type { Macros } from './macros';
 import type { MealSlot, PlannedSlot } from './meals/slots';
 import type { MuscleGroup } from './workouts/exercises';
 
-/** obtenerConsejoPive request. Response: { advice: string } */
+/** A meal ready to log from the advice ("Registrar así"), calculated in code from the plan */
+export interface AdviceProposal {
+  slot: MealSlot;
+  name: string;
+  macros: Macros;
+  ingredients: IngredientWithMacros[];
+}
+
+/** obtenerConsejoPive request before phase 1. Response: { advice: string } */
 export interface AdviceRequest {
   dailyMacros: Macros;
   goals: Macros;

@@ -3,12 +3,14 @@ import { StyleSheet, Text, View, ScrollView, Pressable, TouchableOpacity, Animat
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../src/hooks/useAuth';
 import { getPiveAdvice } from '../../src/services/geminiService';
-import { removeMealFromDailyLog } from '../../src/services/dailyLogService';
+import { removeMealFromDailyLog, updateMealInDailyLog } from '../../src/services/dailyLogService';
 import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight } from 'lucide-react-native';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
-import { DailyLog, Meal } from '../../src/types';
-import { formatNum } from '../../src/lib/utils';
+import { DailyLog, Meal, MealSlot } from '../../src/types';
+import { formatNum, getLocalDateString } from '../../src/lib/utils';
+import { daySlotStatuses, resolveDayMeals } from '../../src/lib/mealSlots';
+import { DaySlotsStrip } from '../../src/components/DaySlotsStrip';
 import { Theme } from '../../src/theme';
 import { MealList } from '../../src/components/MealList';
 import { router } from 'expo-router';
@@ -278,6 +280,21 @@ export default function Dashboard() {
     });
   }, [selectedDate]);
 
+  // Every meal with its slot (inferred for older ones), and the day's slots with their budgets
+  const isToday = selectedDate === getLocalDateString();
+  const mealSlots = Object.fromEntries(resolveDayMeals(dailyLog?.meals, profile).map((m) => [m.id, m.slot]));
+  const slotStatuses = profile?.macroGoals ? daySlotStatuses(dailyLog, profile, isToday).slots : [];
+
+  const handleChangeSlot = async (meal: Meal, slot: MealSlot) => {
+    if (!user) return;
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      await updateMealInDailyLog(user.uid, selectedDate, meal.id, { slot, slotSource: 'user' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/dailyLogs/${selectedDate}`);
+    }
+  };
+
   const handleDeleteMeal = async (mealToDelete: Meal) => {
     if (!user || !dailyLog) return;
 
@@ -434,7 +451,13 @@ export default function Dashboard() {
       {/* Today's Meals */}
       <View style={styles.section}>
         <Text style={styles.sectionHeading}>Comidas de Hoy</Text>
-        <MealList meals={dailyLog?.meals || []} onDeleteMeal={handleDeleteMeal} />
+        <DaySlotsStrip slots={slotStatuses} />
+        <MealList
+          meals={dailyLog?.meals || []}
+          slots={mealSlots}
+          onDeleteMeal={handleDeleteMeal}
+          onChangeSlot={handleChangeSlot}
+        />
       </View>
 
       {/* Daily Goals Checklist */}

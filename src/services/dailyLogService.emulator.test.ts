@@ -7,7 +7,7 @@ import { signInAnonymously, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, terminate } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Meal } from '../types';
-import { addMealToDailyLog, removeMealFromDailyLog } from './dailyLogService';
+import { addMealToDailyLog, removeMealFromDailyLog, updateMealInDailyLog } from './dailyLogService';
 
 // jest.mock factories can't use imports
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -133,6 +133,57 @@ describe('removeMealFromDailyLog', () => {
   });
 });
 
+describe('updateMealInDailyLog', () => {
+  it('changes the slot of a meal without touching the day totals or the other meals', async () => {
+    const date = nextDate();
+    await addMealToDailyLog(uid, date, { ...meal('a', 300), slot: 'lunch', slotSource: 'suggested' });
+    await addMealToDailyLog(uid, date, meal('b', 200));
+
+    await updateMealInDailyLog(uid, date, 'a', { slot: 'afternoon_snack', slotSource: 'user' });
+
+    const log = await readLog(date);
+    expect(log.meals).toEqual([{ ...meal('a', 300), slot: 'afternoon_snack', slotSource: 'user' }, meal('b', 200)]);
+    expect(log.macros).toEqual({ protein: 20, carbs: 40, fats: 10, calories: 500 });
+  });
+
+  it('gives a slot to an old meal saved without one, and can change its time', async () => {
+    const date = nextDate();
+    await addMealToDailyLog(uid, date, meal('old', 400));
+
+    await updateMealInDailyLog(uid, date, 'old', { slot: 'dinner', slotSource: 'user', time: '2026-10-19T20:00:00.000Z' });
+
+    const [updated] = (await readLog(date)).meals;
+    expect(updated).toMatchObject({ id: 'old', slot: 'dinner', slotSource: 'user', time: '2026-10-19T20:00:00.000Z' });
+  });
+
+  it('ignores undefined fields and does nothing for a meal or a day that does not exist', async () => {
+    const date = nextDate();
+    await addMealToDailyLog(uid, date, meal('a', 100));
+
+    await updateMealInDailyLog(uid, date, 'a', { slot: 'breakfast', time: undefined });
+    await updateMealInDailyLog(uid, date, 'missing', { slot: 'dinner' });
+    await updateMealInDailyLog(uid, nextDate(), 'a', { slot: 'dinner' });
+
+    const log = await readLog(date);
+    expect(log.meals).toEqual([{ ...meal('a', 100), slot: 'breakfast' }]);
+  });
+
+  it('keeps every change when slots are changed while meals are added', async () => {
+    const date = nextDate();
+    for (let i = 0; i < 5; i++) await addMealToDailyLog(uid, date, meal(`m${i}`));
+
+    await Promise.all([
+      ...Array.from({ length: 5 }, (_, i) => updateMealInDailyLog(uid, date, `m${i}`, { slot: 'extra', slotSource: 'user' })),
+      ...Array.from({ length: 5 }, (_, i) => addMealToDailyLog(uid, date, meal(`new${i}`))),
+    ]);
+
+    const log = await readLog(date);
+    expect(log.meals).toHaveLength(10);
+    expect(log.meals.filter((m: Meal) => m.slot === 'extra')).toHaveLength(5);
+    expect(log.macros.calories).toBe(1000);
+  });
+});
+
 describe('firestore.rules', () => {
   it("doesn't let another user write to someone else's log", async () => {
     const ownerUid = uid;
@@ -144,5 +195,6 @@ describe('firestore.rules', () => {
 
     await expect(addMealToDailyLog(ownerUid, date, meal('intruder'))).rejects.toMatchObject({ code: 'permission-denied' });
     await expect(removeMealFromDailyLog(ownerUid, date, 'a')).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(updateMealInDailyLog(ownerUid, date, 'a', { slot: 'dinner' })).rejects.toMatchObject({ code: 'permission-denied' });
   });
 });

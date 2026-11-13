@@ -1,19 +1,27 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { Utensils, Trash2 } from 'lucide-react-native';
+import { Utensils, Trash2, ChevronDown } from 'lucide-react-native';
 import { formatNum } from '../lib/utils';
-import { Meal } from '../types';
+import { Meal, MealSlot } from '../types';
 import { Theme } from '../theme';
+import { Modal } from './Modal';
+import { SlotChips } from './SlotChips';
+import { MEAL_SLOT_LABELS } from '../../functions/src/shared/meals/slots';
 
 interface MealCardProps {
   meal: Meal;
   onDelete: (meal: Meal) => void;
+  /** Its slot: the saved one, or the inferred one for older meals. Without it the card shows no slot. */
+  slot?: MealSlot;
+  onChangeSlot?: (meal: Meal, slot: MealSlot) => void;
 }
 
-export const MealCard: React.FC<MealCardProps> = ({ meal, onDelete }) => {
+export const MealCard: React.FC<MealCardProps> = ({ meal, onDelete, slot, onChangeSlot }) => {
   // Older meals stored a device-local URI (file:// or blob:) that no longer loads
   const [imageFailed, setImageFailed] = useState(false);
+  const [isSlotPickerOpen, setIsSlotPickerOpen] = useState(false);
+  const time = new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <View style={styles.card}>
@@ -35,9 +43,22 @@ export const MealCard: React.FC<MealCardProps> = ({ meal, onDelete }) => {
           <Text style={styles.name} numberOfLines={1}>
             {meal.name}
           </Text>
-          <Text style={styles.time}>
-            {new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+          <View style={styles.metaRow}>
+            {slot && (
+              <Pressable
+                onPress={() => setIsSlotPickerOpen(true)}
+                disabled={!onChangeSlot}
+                style={styles.slotPill}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`${MEAL_SLOT_LABELS[slot]}. Cambiar el tiempo de comida`}
+              >
+                <Text style={styles.slotPillText}>{MEAL_SLOT_LABELS[slot]}</Text>
+                {onChangeSlot && <ChevronDown size={12} color={Theme.colors.primary} />}
+              </Pressable>
+            )}
+            <Text style={styles.time}>{time}</Text>
+          </View>
           <Text style={styles.calories}>
             {formatNum(meal.macros.calories)} kcal
           </Text>
@@ -45,10 +66,31 @@ export const MealCard: React.FC<MealCardProps> = ({ meal, onDelete }) => {
             P: {formatNum(meal.macros.protein)}g  |  C: {formatNum(meal.macros.carbs)}g  |  G: {formatNum(meal.macros.fats)}g
           </Text>
         </View>
-        <Pressable onPress={() => onDelete(meal)} style={styles.deleteButton}>
+        <Pressable
+          onPress={() => onDelete(meal)}
+          style={styles.deleteButton}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={`Borrar ${meal.name}`}
+        >
           <Trash2 size={18} color={Theme.colors.error} />
         </Pressable>
       </View>
+
+      {slot && onChangeSlot && (
+        <Modal isOpen={isSlotPickerOpen} onClose={() => setIsSlotPickerOpen(false)} title="¿Qué comida fue?">
+          <View style={styles.pickerContent}>
+            <Text style={styles.pickerMealName} numberOfLines={2}>{meal.name} · {time}</Text>
+            <SlotChips
+              value={slot}
+              onChange={(next) => {
+                setIsSlotPickerOpen(false);
+                if (next !== slot || meal.slot !== next) onChangeSlot(meal, next);
+              }}
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -89,11 +131,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Theme.colors.onSurface,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  slotPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.primary + '1a',
+  },
+  slotPillText: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 11,
+    color: Theme.colors.primary,
+  },
   time: {
     fontFamily: Theme.fonts.body,
     fontSize: 11,
     color: Theme.colors.onSurfaceVariant,
-    marginTop: 2,
+  },
+  pickerContent: {
+    gap: 16,
+  },
+  pickerMealName: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
   },
   calories: {
     fontFamily: Theme.fonts.label,
