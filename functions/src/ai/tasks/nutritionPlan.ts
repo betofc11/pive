@@ -1,8 +1,8 @@
 // Extract a nutrition plan from an image, a PDF or text. Pure (no SDK imports), so the root Jest can test it.
 import { NUTRITION_RULES } from "../prompts/nutrition";
-import { type IngredientWithMacros, mealMacrosFromIngredients } from "../../shared/ingredients";
-import type { Macros } from "../../shared/macros";
-import { isPlannedSlot, type PlannedSlot, slotFromLabel } from "../../shared/meals/slots";
+import type { NutritionPlanAnalysis, NutritionPlanEquivalence, NutritionPlanMeal, NutritionPlanOption } from "../../shared/api";
+import { mealMacrosFromIngredients } from "../../shared/ingredients";
+import { isPlannedSlot, slotFromLabel } from "../../shared/meals/slots";
 import { asArray, asNumber, asObject, asText, asTextList, cleanIngredients, cleanMacros } from "./normalize";
 
 const NUTRITION_PLAN_TASK = `# Tu tarea: extraer un plan nutricional
@@ -22,40 +22,6 @@ Recibes un plan nutricional (imagen, PDF o texto). Extrae de forma estructurada:
 9. Todo el texto en español.`;
 
 export const NUTRITION_PLAN_INSTRUCTION = `${NUTRITION_RULES}\n\n${NUTRITION_PLAN_TASK}`;
-
-export interface NutritionPlanOption {
-  title: string;
-  ingredients: IngredientWithMacros[];
-  /** Sum of the ingredients when all have macros; otherwise the model's total */
-  macros?: Macros;
-}
-
-export interface NutritionPlanMeal {
-  type: string;
-  slot?: PlannedSlot;
-  options: NutritionPlanOption[];
-}
-
-export interface NutritionPlanEquivalence {
-  group: string;
-  food: string;
-  quantity: number;
-  unit: string;
-}
-
-/** Response of analizarPlanNutricional */
-export interface NutritionPlanAnalysis {
-  name: string;
-  calories?: number;
-  protein?: number;
-  carbs?: number;
-  fats?: number;
-  advice: string;
-  restrictions: string[];
-  exchanges: { name: string; qty: string }[];
-  equivalences?: NutritionPlanEquivalence[];
-  meals: NutritionPlanMeal[];
-}
 
 const roundGoal = (value: unknown) => {
   const n = asNumber(value);

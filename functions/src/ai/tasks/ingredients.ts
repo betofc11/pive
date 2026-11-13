@@ -1,7 +1,8 @@
 // Macros of a list of ingredients. Pure (no SDK imports), so the root Jest can test it.
 import { NUTRITION_RULES } from "../prompts/nutrition";
+import type { IngredientsMacros } from "../../shared/api";
 import type { IngredientWithMacros } from "../../shared/ingredients";
-import { type Macros, sumMacros } from "../../shared/macros";
+import { sumMacros } from "../../shared/macros";
 import { asArray, asObject, cleanIngredient, cleanIngredients } from "./normalize";
 
 const INGREDIENTS_TASK = `# Tu tarea: macros de una lista de ingredientes
@@ -15,11 +16,6 @@ export const INGREDIENTS_INSTRUCTION = `${NUTRITION_RULES}\n\n${INGREDIENTS_TASK
 
 /** The most ingredients a request can have (a saved meal allows up to 50) */
 export const MAX_INGREDIENTS = 50;
-
-/** Response of calcularMacrosIngredientes: the meal's totals at the top level (as before phase 0) plus the breakdown. */
-export interface IngredientsMacros extends Macros {
-  ingredients: IngredientWithMacros[];
-}
 
 /** The ingredients the client sent, cleaned. Those that already have macros don't need the AI. */
 export function parseRequestedIngredients(value: unknown): IngredientWithMacros[] {

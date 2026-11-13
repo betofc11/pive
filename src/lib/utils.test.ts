@@ -1,6 +1,6 @@
 // These tests run in America/New_York (see jest.global-setup.js), so the "local date vs UTC"
 // and daylight saving cases below are real.
-import { addDays, formatNum, getDatePillLabel, getFormattedDateOnly, getLocalDateString } from './utils';
+import { addDays, dateKeyToNoonIso, formatNum, getDatePillLabel, getFormattedDateOnly, getLocalDateString, getLocalTimeString } from './utils';
 
 it('runs in the fixed test time zone', () => {
   expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('America/New_York');
@@ -85,4 +85,26 @@ describe('getFormattedDateOnly', () => {
     expect(getFormattedDateOnly('2026-10-19')).toBe('lun, 19 oct');
     expect(getFormattedDateOnly('2026-01-01')).toBe('jue, 1 ene');
   });
+});
+
+describe('getLocalTimeString', () => {
+  it('formats the local time as 24-hour HH:mm', () => {
+    expect(getLocalTimeString(new Date(2026, 10, 13, 8, 5))).toBe('08:05');
+    expect(getLocalTimeString(new Date(2026, 10, 13, 21, 40))).toBe('21:40');
+  });
+
+  it('converts an ISO string (UTC) to local time', () => {
+    // 01:30 UTC is 20:30 of the previous day in New York (EST, UTC-5)
+    expect(getLocalTimeString('2026-11-14T01:30:00.000Z')).toBe('20:30');
+  });
+
+  it('returns an empty string for an invalid date', () => {
+    expect(getLocalTimeString('nope')).toBe('');
+  });
+});
+
+it('dateKeyToNoonIso keeps the same local day', () => {
+  const iso = dateKeyToNoonIso('2026-10-02');
+  const date = new Date(iso);
+  expect([date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()]).toEqual([2026, 9, 2, 12]);
 });

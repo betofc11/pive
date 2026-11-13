@@ -9,7 +9,9 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
 import { formatNum, readUriAsBase64 } from '../../src/lib/utils';
-import { Meal } from '../../src/types';
+import { Meal, NutritionalPlan, PlanMealOption } from '../../src/types';
+import { mealMacrosFromIngredients } from '../../functions/src/shared/ingredients';
+import { roundMacros } from '../../functions/src/shared/macros';
 import { SavedMealsSection } from '../../src/components/SavedMealsSection';
 import { FoodDialog } from '../../src/components/FoodDialog';
 import { Theme } from '../../src/theme';
@@ -123,24 +125,26 @@ export default function PlanScreen() {
       });
 
       if (analysis.protein && analysis.carbs && analysis.fats) {
+        const { protein, carbs, fats } = analysis;
+        // A plan without a calorie goal gets it from its macros
+        const calories = analysis.calories || Math.round(protein * 4 + carbs * 4 + fats * 9);
+        const nutritionalPlan: NutritionalPlan = {
+          name: analysis.name || 'Plan Extraído',
+          calories,
+          protein,
+          carbs,
+          fats,
+          advice: analysis.advice || '',
+          meals: analysis.meals || [],
+          exchanges: analysis.exchanges || [],
+          restrictions: analysis.restrictions || [],
+          extractedAt: Date.now()
+        };
+        if (analysis.equivalences?.length) nutritionalPlan.equivalences = analysis.equivalences;
+
         await setDoc(doc(db, 'users', user.uid), {
-          macroGoals: {
-            protein: analysis.protein,
-            carbs: analysis.carbs,
-            fats: analysis.fats,
-            calories: analysis.calories
-          },
-          nutritionalPlan: {
-            name: analysis.name || 'Plan Extraído',
-            calories: analysis.calories,
-            protein: analysis.protein,
-            carbs: analysis.carbs,
-            fats: analysis.fats,
-            advice: analysis.advice || '',
-            meals: analysis.meals || [],
-            exchanges: analysis.exchanges || [],
-            extractedAt: Date.now()
-          }
+          macroGoals: { protein, carbs, fats, calories },
+          nutritionalPlan
         }, { merge: true });
 
         Alert.alert('¡Plan Extraído!', 'Tu plan nutricional ha sido analizado y guardado con éxito.');
@@ -157,16 +161,17 @@ export default function PlanScreen() {
     }
   };
 
-  const handleRegisterMeal = async (categoryType: string, option: any) => {
+  const handleRegisterMeal = async (categoryType: string, option: PlanMealOption) => {
     if (!user) return;
     const mealKey = `${categoryType}-${option.title}`;
     setLoggingMeal(mealKey);
     try {
-      let macros = option.macros;
+      // Plans and saved meals carry their macros since phase 0; the AI is only for older ones
+      let macros = option.macros ?? mealMacrosFromIngredients(option.ingredients ?? []);
       if (!macros) {
-        macros = await calculateMacrosFromIngredients(option.ingredients);
+        macros = roundMacros(await calculateMacrosFromIngredients(option.ingredients ?? []));
       }
-      
+
       const newMeal: Meal = {
         id: Date.now().toString(),
         name: option.title,

@@ -1,6 +1,7 @@
 // Extract a workout plan. Pure (no SDK imports), so the root Jest can test it.
 import { TRAINING_RULES } from "../prompts/training";
-import { canonicalExerciseName, isMuscleGroup, type MuscleGroup } from "../../shared/workouts/exercises";
+import type { WorkoutPlanAnalysis, WorkoutPlanExercise } from "../../shared/api";
+import { canonicalExerciseName, isMuscleGroup } from "../../shared/workouts/exercises";
 import { asArray, asObject, asText } from "./normalize";
 
 const WORKOUT_PLAN_TASK = `# Tu tarea: extraer una rutina de entrenamiento
@@ -10,20 +11,6 @@ Extrae la rutina dividida en días de entrenamiento de forma estructurada.
 - Para cada ejercicio, extrae el nombre, el número de series (sets), las repeticiones (reps), una breve descripción de la técnica en español (máximo 1 frase) y los grupos musculares que trabaja.`;
 
 export const WORKOUT_PLAN_INSTRUCTION = `${TRAINING_RULES}\n\n${WORKOUT_PLAN_TASK}`;
-
-export interface WorkoutPlanExercise {
-  name: string;
-  sets: string;
-  reps: string;
-  description: string;
-  muscleGroups: MuscleGroup[];
-}
-
-/** Response of analizarPlanEntrenamiento. No youtubeUrl: the app searches YouTube by the exercise name. */
-export interface WorkoutPlanAnalysis {
-  name: string;
-  days: { name: string; exercises: WorkoutPlanExercise[] }[];
-}
 
 // Sets and reps are text ("4", "8-12", "Al fallo"), but a model can return them as numbers
 const asCount = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? String(value) : asText(value));

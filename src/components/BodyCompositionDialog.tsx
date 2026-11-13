@@ -11,7 +11,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { Theme } from '../theme';
 import { saveMetricsToHealthKit } from '../services/healthKitService';
-import { readUriAsBase64 } from '../lib/utils';
+import { dateKeyToNoonIso, getFormattedDateOnly, readUriAsBase64 } from '../lib/utils';
 
 interface BodyCompositionDialogProps {
   isOpen: boolean;
@@ -27,6 +27,8 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
   const [weight, setWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
   const [muscleMass, setMuscleMass] = useState('');
+  // Date the report was taken (YYYY-MM-DD), when the AI finds it. The history entry uses it instead of today.
+  const [measuredAt, setMeasuredAt] = useState<string | null>(null);
 
   const pickDocument = async () => {
     try {
@@ -116,6 +118,7 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
       setWeight(result.weight?.toString() || profile?.bodyMetrics?.weight?.toString() || '');
       setBodyFat(result.bodyFat?.toString() || profile?.bodyMetrics?.bodyFat?.toString() || '');
       setMuscleMass(result.muscleMass?.toString() || profile?.bodyMetrics?.muscleMass?.toString() || '');
+      setMeasuredAt(result.measuredAt ?? null);
 
       setStep('edit');
     } catch (error) {
@@ -153,7 +156,7 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
       await addDoc(collection(db, `users/${user.uid}/bodyMetricsHistory`), {
         userId: user.uid,
         ...metrics,
-        date: new Date().toISOString(),
+        date: measuredAt ? dateKeyToNoonIso(measuredAt) : new Date().toISOString(),
         createdAt: Date.now(),
       });
 
@@ -165,6 +168,7 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
       onClose();
       // Reset state
       setSelectedFile(null);
+      setMeasuredAt(null);
       setStep('upload');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
@@ -215,7 +219,13 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
           )}
 
           <View style={styles.footerButtons}>
-            <Pressable style={styles.manualButton} onPress={() => setStep('edit')}>
+            <Pressable
+              style={styles.manualButton}
+              onPress={() => {
+                setMeasuredAt(null);
+                setStep('edit');
+              }}
+            >
               <Text style={styles.manualButtonText}>Entrada Manual</Text>
             </Pressable>
 
@@ -239,6 +249,12 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
           <Pressable style={styles.backButton} onPress={() => setStep('upload')}>
             <Text style={styles.backButtonText}>← Volver a subir archivo</Text>
           </Pressable>
+
+          {measuredAt && (
+            <Text style={styles.measuredAtText}>
+              Fecha del reporte: <Text style={styles.measuredAtDate}>{getFormattedDateOnly(measuredAt)}</Text>
+            </Text>
+          )}
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
@@ -414,6 +430,15 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontFamily: Theme.fonts.label,
     fontSize: 13,
+    color: Theme.colors.primary,
+  },
+  measuredAtText: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  measuredAtDate: {
+    fontFamily: Theme.fonts.bodyBold,
     color: Theme.colors.primary,
   },
   form: {

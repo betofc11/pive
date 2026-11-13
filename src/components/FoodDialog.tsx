@@ -14,12 +14,20 @@ import { Theme } from '../theme';
 import { saveMealToHealthKit } from '../services/healthKitService';
 import { addMealToDailyLog } from '../services/dailyLogService';
 import { useHeaderScroll } from '../../app/(tabs)/_layout';
+import { mealMacrosFromIngredients } from '../../functions/src/shared/ingredients';
+import { type Macros, roundMacros } from '../../functions/src/shared/macros';
+import {
+  applyIngredientEdit,
+  type EditableIngredient,
+  type IngredientField,
+  toEditableIngredients,
+  toSavedIngredients,
+} from '../lib/ingredientEdits';
 
-interface Ingredient {
-  name: string;
-  quantity: number;
-  unit: string;
-}
+const formatMacrosLine = (m: Macros) => {
+  const r = roundMacros(m);
+  return `${r.calories} kcal · P ${r.protein} g · C ${r.carbs} g · G ${r.fats} g`;
+};
 
 interface FoodDialogProps {
   isOpen: boolean;
@@ -36,8 +44,11 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
   const [step, setStep] = useState<'upload' | 'edit' | 'saving'>('upload');
   
   const [foodName, setFoodName] = useState('');
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [macros, setMacros] = useState<any>(null);
+  const [ingredients, setIngredients] = useState<EditableIngredient[]>([]);
+  // Total of the meal as it came (AI or a saved meal), while its ingredients are untouched.
+  // Old saved meals have this total but no macros per ingredient.
+  const [macros, setMacros] = useState<Macros | null>(null);
+  const [assumptions, setAssumptions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   
   const [savedMeals, setSavedMeals] = useState<any[]>([]);
@@ -63,8 +74,9 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     if (user && isOpen) {
       if (initialData) {
         setFoodName(initialData.name || '');
-        setIngredients(initialData.ingredients || []);
+        setIngredients(toEditableIngredients(initialData.ingredients));
         setMacros(initialData.macros || null);
+        setAssumptions([]);
         setStep('edit');
         setSelectedImage(initialData.imageUrl ? { uri: initialData.imageUrl, mimeType: 'image/jpeg' } : null);
         setDescription('');
@@ -74,6 +86,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
         setFoodName('');
         setIngredients([]);
         setMacros(null);
+        setAssumptions([]);
         setSelectedImage(null);
         setDescription('');
         setSaveAsFavorite(false);
@@ -160,8 +173,9 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       const result = await analyzeFood({ ...imageInput, text: description.trim() || undefined });
 
       setFoodName(result.name || 'Comida Desconocida');
-      setIngredients(result.ingredients || []);
+      setIngredients(toEditableIngredients(result.ingredients));
       setMacros(result.macros || null);
+      setAssumptions(result.assumptions || []);
       setStep('edit');
     } catch (err) {
       console.error("Error analyzing food:", err);
@@ -176,14 +190,16 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     setFoodName('');
     setIngredients([]);
     setMacros(null);
+    setAssumptions([]);
     setError(null);
     setStep('edit');
   };
 
   const handleSelectSavedMeal = (meal: any) => {
     setFoodName(meal.name);
-    setIngredients(meal.ingredients || []);
+    setIngredients(toEditableIngredients(meal.ingredients));
     setMacros(meal.macros || null);
+    setAssumptions([]);
     setError(null);
     setStep('edit');
   };
@@ -193,18 +209,23 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     setStep('saving');
     setError(null);
     try {
-      let finalMacros = macros;
+      let savedIngredients = toSavedIngredients(ingredients);
+      // The AI is only needed when some ingredient has no macros and the original total no longer applies
+      let finalMacros = mealMacrosFromIngredients(savedIngredients) ?? macros;
       if (!finalMacros) {
-        finalMacros = await calculateMacrosFromIngredients(ingredients);
+        const result = await calculateMacrosFromIngredients(savedIngredients);
+        finalMacros = { calories: result.calories, protein: result.protein, carbs: result.carbs, fats: result.fats };
+        if (result.ingredients?.length === savedIngredients.length) savedIngredients = result.ingredients;
       }
-      
+      finalMacros = roundMacros(finalMacros);
+
       if (saveAsFavorite && foodName.trim()) {
         const mealId = initialData?.id || Date.now().toString();
         await setDoc(doc(db, `users/${user.uid}/savedMeals`, mealId), {
           id: mealId,
           userId: user.uid,
           name: foodName.trim(),
-          ingredients: ingredients,
+          ingredients: savedIngredients,
           macros: finalMacros
         });
       }
@@ -233,6 +254,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       setStep('upload');
       setIngredients([]);
       setMacros(null);
+      setAssumptions([]);
       setSaveAsFavorite(false);
       setError(null);
     } catch (err: any) {
@@ -245,25 +267,25 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
     }
   };
 
-  const updateIngredient = (index: number, field: keyof Ingredient, value: string | number) => {
-    const newIngredients = [...ingredients];
-    newIngredients[index] = { 
-      ...newIngredients[index], 
-      [field]: field === 'quantity' ? (parseFloat(value as string) || 0) : value 
-    };
-    setIngredients(newIngredients);
-    setMacros(null); // Force recalculation if ingredients change
+  // Changing a quantity scales that ingredient's macros, without the AI. Any change makes the
+  // original total stale: from then on the total is the sum of the ingredients (or the AI, on save).
+  const updateIngredient = (index: number, field: IngredientField, value: string) => {
+    setIngredients(ingredients.map((ingredient, i) => (i === index ? applyIngredientEdit(ingredient, field, value) : ingredient)));
+    setMacros(null);
   };
 
   const addIngredient = () => {
     setIngredients([...ingredients, { name: '', quantity: 0, unit: 'g' }]);
-    setMacros(null); // Force recalculation
+    setMacros(null);
   };
 
   const removeIngredient = (index: number) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
-    setMacros(null); // Force recalculation
+    setMacros(null);
   };
+
+  const filledIngredients = ingredients.filter((ingredient) => ingredient.name.trim());
+  const knownMacros = mealMacrosFromIngredients(filledIngredients) ?? macros;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Registrar Comida">
@@ -389,32 +411,43 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
 
           <View style={styles.ingredientsList}>
             {ingredients.map((ing, idx) => (
-              <View key={idx} style={styles.ingredientRow}>
-                <TextInput
-                  value={ing.name}
-                  onChangeText={(val) => updateIngredient(idx, 'name', val)}
-                  placeholder="Ingrediente"
-                  placeholderTextColor={Theme.colors.onSurfaceVariant}
-                  style={styles.ingNameInput}
-                />
-                <TextInput
-                  value={ing.quantity > 0 ? ing.quantity.toString() : ''}
-                  onChangeText={(val) => updateIngredient(idx, 'quantity', val)}
-                  placeholder="Cant."
-                  placeholderTextColor={Theme.colors.onSurfaceVariant}
-                  keyboardType="numeric"
-                  style={styles.ingQtyInput}
-                />
-                <TextInput
-                  value={ing.unit}
-                  onChangeText={(val) => updateIngredient(idx, 'unit', val)}
-                  placeholder="Unid."
-                  placeholderTextColor={Theme.colors.onSurfaceVariant}
-                  style={styles.ingUnitInput}
-                />
-                <Pressable onPress={() => removeIngredient(idx)} style={styles.deleteButton}>
-                  <Trash2 size={16} color={Theme.colors.error} />
-                </Pressable>
+              <View key={idx} style={styles.ingredientItem}>
+                <View style={styles.ingredientRow}>
+                  <TextInput
+                    value={ing.name}
+                    onChangeText={(val) => updateIngredient(idx, 'name', val)}
+                    placeholder="Ingrediente"
+                    placeholderTextColor={Theme.colors.onSurfaceVariant}
+                    style={styles.ingNameInput}
+                  />
+                  <TextInput
+                    value={ing.quantity > 0 ? ing.quantity.toString() : ''}
+                    onChangeText={(val) => updateIngredient(idx, 'quantity', val)}
+                    placeholder="Cant."
+                    placeholderTextColor={Theme.colors.onSurfaceVariant}
+                    keyboardType="numeric"
+                    style={styles.ingQtyInput}
+                  />
+                  <TextInput
+                    value={ing.unit}
+                    onChangeText={(val) => updateIngredient(idx, 'unit', val)}
+                    placeholder="Unid."
+                    placeholderTextColor={Theme.colors.onSurfaceVariant}
+                    style={styles.ingUnitInput}
+                  />
+                  <Pressable
+                    onPress={() => removeIngredient(idx)}
+                    style={styles.deleteButton}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${ing.name || 'ingrediente'}`}
+                  >
+                    <Trash2 size={16} color={Theme.colors.error} />
+                  </Pressable>
+                </View>
+                {ing.macros && (
+                  <Text style={styles.ingredientMacros}>{formatMacrosLine(ing.macros)}</Text>
+                )}
               </View>
             ))}
 
@@ -422,6 +455,25 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
               <Text style={styles.emptyIngredients}>Añade ingredientes para calcular los macros.</Text>
             )}
           </View>
+
+          {filledIngredients.length > 0 && (
+            <View style={styles.totalBox}>
+              <Text style={styles.totalLabel}>Total del plato</Text>
+              <Text style={styles.totalValue}>
+                {knownMacros ? formatMacrosLine(knownMacros) : 'Se calcula al guardar'}
+              </Text>
+            </View>
+          )}
+
+          {assumptions.length > 0 && (
+            <View style={styles.assumptionsBox}>
+              <Text style={styles.assumptionsTitle}>Lo que Pive asumió</Text>
+              {assumptions.map((assumption, i) => (
+                <Text key={i} style={styles.assumptionText}>• {assumption}</Text>
+              ))}
+              <Text style={styles.assumptionsHint}>Si algo no cuadra, corrige el ingrediente o la cantidad.</Text>
+            </View>
+          )}
 
           <Pressable 
             style={styles.checkboxContainer}
@@ -441,10 +493,10 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
 
           <Pressable
             onPress={handleSave}
-            disabled={ingredients.length === 0 || !foodName}
-            style={[styles.saveButton, (ingredients.length === 0 || !foodName) ? styles.disabledButton : null]}
+            disabled={filledIngredients.length === 0 || !foodName}
+            style={[styles.saveButton, (filledIngredients.length === 0 || !foodName) ? styles.disabledButton : null]}
           >
-            <Text style={styles.saveButtonText}>Calcular Macros y Guardar</Text>
+            <Text style={styles.saveButtonText}>{knownMacros ? 'Guardar' : 'Calcular Macros y Guardar'}</Text>
           </Pressable>
         </View>
       )}
@@ -452,7 +504,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       {step === 'saving' && (
         <View style={styles.savingContainer}>
           <ActivityIndicator size="large" color={Theme.colors.primary} />
-          <Text style={styles.savingText}>Calculando macros y guardando...</Text>
+          <Text style={styles.savingText}>{knownMacros ? 'Guardando...' : 'Calculando macros y guardando...'}</Text>
         </View>
       )}
     </Modal>
@@ -641,16 +693,68 @@ const styles = StyleSheet.create({
   ingredientsList: {
     gap: 8,
   },
-  ingredientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  ingredientItem: {
     backgroundColor: Theme.colors.surfaceContainerHigh,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Theme.colors.border,
+    gap: 2,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ingredientMacros: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+    paddingBottom: 2,
+  },
+  totalBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  totalLabel: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  totalValue: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 13,
+    color: Theme.colors.primary,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  assumptionsBox: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    padding: 12,
+    gap: 4,
+  },
+  assumptionsTitle: {
+    fontFamily: Theme.fonts.label,
+    fontSize: 13,
+    color: Theme.colors.onSurface,
+  },
+  assumptionText: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.onSurfaceVariant,
+  },
+  assumptionsHint: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onSurfaceVariant,
+    marginTop: 4,
   },
   ingNameInput: {
     flex: 1.5,

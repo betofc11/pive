@@ -16,7 +16,8 @@ Da un consejo nutricional sumamente corto: máximo 2 frases.
 
 export const ADVICE_INSTRUCTION = `${PIVE_CORE}\n\n${NUTRITION_RULES}\n\n${ADVICE_TASK}`;
 
-export interface AdviceRequest {
+/** The advice request as it arrives: from any client version, so nothing is trusted */
+export interface AdviceInput {
   dailyMacros?: unknown;
   goals?: unknown;
   meals?: unknown;
@@ -44,7 +45,7 @@ const formatMeals = (meals: unknown): string => {
 };
 
 /** The user's data for the advice, with every number already calculated (the remaining macros never go below 0). */
-export function buildAdviceContents({ dailyMacros, goals, meals, currentTime, localDate }: AdviceRequest): string {
+export function buildAdviceContents({ dailyMacros, goals, meals, currentTime, localDate }: AdviceInput): string {
   const consumed = toMacros(dailyMacros);
   const goal = toMacros(goals);
   const diff = subtractMacros(goal, consumed);

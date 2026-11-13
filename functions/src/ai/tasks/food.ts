@@ -1,8 +1,8 @@
 // Estimate a meal from a photo, a description or both. Pure (no SDK imports), so the root Jest can test it.
 import { NUTRITION_RULES } from "../prompts/nutrition";
-import type { IngredientWithMacros } from "../../shared/ingredients";
-import { type Macros, sumMacros } from "../../shared/macros";
-import { isMealSlot, type MealSlot } from "../../shared/meals/slots";
+import type { FoodAnalysis } from "../../shared/api";
+import { sumMacros } from "../../shared/macros";
+import { isMealSlot } from "../../shared/meals/slots";
 import { asObject, asText, asTextList, cleanIngredients } from "./normalize";
 
 const FOOD_TASK = `# Tu tarea: estimar una comida
@@ -16,16 +16,6 @@ Recibes la foto de una comida, una descripción del usuario o ambas.
 6. Todo el texto en español.`;
 
 export const FOOD_INSTRUCTION = `${NUTRITION_RULES}\n\n${FOOD_TASK}`;
-
-/** Response of analizarImagenComida */
-export interface FoodAnalysis {
-  name: string;
-  /** Sum of the ingredients, calculated in code */
-  macros: Macros;
-  ingredients: IngredientWithMacros[];
-  assumptions: string[];
-  mentionedSlot: MealSlot | null;
-}
 
 export function normalizeFoodAnalysis(raw: unknown): FoodAnalysis {
   const data = asObject(raw);

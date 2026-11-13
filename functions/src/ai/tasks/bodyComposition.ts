@@ -1,4 +1,5 @@
 // Extract a body composition report. Pure (no SDK imports), so the root Jest can test it.
+import type { BodyCompositionAnalysis } from "../../shared/api";
 import { dateKeyToUtcMs } from "../../shared/dates";
 import { asNumber, asObject } from "./normalize";
 
@@ -16,15 +17,6 @@ REGLAS ESTRICTAS DE EXTRACCIÓN:
 4. La fecha de la medición (measuredAt) va en formato YYYY-MM-DD. En Latinoamérica las fechas suelen escribirse día/mes/año. Si el reporte no muestra la fecha, devuelve null: no uses la fecha de hoy.
 
 Responde únicamente con el formato JSON.`;
-
-/** Response of analizarComposicionCorporal */
-export interface BodyCompositionAnalysis {
-  weight?: number;
-  bodyFat?: number;
-  muscleMass?: number;
-  /** Date of the measurement, or null if the report doesn't show it (or it is in the future) */
-  measuredAt: string | null;
-}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
