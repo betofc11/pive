@@ -4,7 +4,7 @@ import { Alert } from '../lib/alert';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon, Plus, Trash2, Bookmark, AlertCircle, Check } from 'lucide-react-native';
 import { Modal } from './Modal';
-import { analyzeFood, calculateMacrosFromIngredients } from '../services/geminiService';
+import { analyzeFood, calculateMacrosFromIngredients, getAiErrorMessage } from '../services/geminiService';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, setDoc, collection, getDocs, query } from 'firebase/firestore';
@@ -165,8 +165,8 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       setStep('edit');
     } catch (err) {
       console.error("Error analyzing food:", err);
-      setError("Error al analizar la comida. Intenta de nuevo.");
-      Alert.alert('Error', 'La IA no pudo analizar la comida. Ingresa la comida de forma manual.');
+      setError(getAiErrorMessage(err, "Error al analizar la comida. Intenta de nuevo."));
+      Alert.alert('Error', `${getAiErrorMessage(err, 'La IA no pudo analizar la comida.')} Ingresa la comida de forma manual.`);
     } finally {
       setLoading(false);
     }
@@ -237,7 +237,7 @@ export const FoodDialog: React.FC<FoodDialogProps> = ({ isOpen, onClose, initial
       setError(null);
     } catch (err: any) {
       console.error("Error saving meal:", err);
-      setError("Hubo un error al registrar la comida. Por favor, intenta de nuevo.");
+      setError(getAiErrorMessage(err, "Hubo un error al registrar la comida. Por favor, intenta de nuevo."));
       setStep('edit');
       if (err?.message?.includes('Missing or insufficient permissions') || err?.message?.includes('permission-denied')) {
         handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/dailyLogs`);

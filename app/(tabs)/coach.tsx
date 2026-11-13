@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator } from
 import { Alert } from '../../src/lib/alert';
 import * as Haptics from 'expo-haptics';
 import { Upload, AlertCircle } from 'lucide-react-native';
-import { analyzeWorkoutPlan } from '../../src/services/geminiService';
+import { analyzeWorkoutPlan, getAiErrorMessage } from '../../src/services/geminiService';
 import { finishWorkoutSession, saveWorkoutPlan, startWorkoutSession, toggleExerciseDone } from '../../src/services/workoutService';
 import { useAuth } from '../../src/hooks/useAuth';
 import { usePersonalRecords } from '../../src/hooks/usePersonalRecords';
@@ -66,8 +66,8 @@ export default function CoachScreen() {
       }
     } catch (err: any) {
       console.error('Error analyzing workout document:', err);
-      setError('Error al analizar los archivos. Intenta de nuevo.');
-      Alert.alert('Análisis fallido', 'No pudimos estructurar la rutina. Intenta de nuevo.');
+      setError(getAiErrorMessage(err, 'Error al analizar los archivos. Intenta de nuevo.'));
+      Alert.alert('Análisis fallido', getAiErrorMessage(err, 'No pudimos estructurar la rutina. Intenta de nuevo.'));
     } finally {
       setLoading(false);
       setGlobalLoading(false);

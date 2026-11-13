@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { StyleSheet, Text, View, ScrollView, Pressable, TouchableOpacity, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../src/hooks/useAuth';
-import { getPiveAdvice } from '../../src/services/geminiService';
+import { getAiErrorMessage, getPiveAdvice } from '../../src/services/geminiService';
 import { removeMealFromDailyLog } from '../../src/services/dailyLogService';
 import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight } from 'lucide-react-native';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
@@ -156,7 +156,7 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error("Error generating advice:", error);
-        setAdvice("¡Vas súper bien con tus macros de hoy! Sigue sumando consistencia.");
+        setAdvice(getAiErrorMessage(error, "¡Vas súper bien con tus macros de hoy! Sigue sumando consistencia."));
       } finally {
         setGeneratingAdvice(false);
       }

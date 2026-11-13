@@ -5,7 +5,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Upload, FileText, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { Modal } from './Modal';
-import { analyzeBodyComposition } from '../services/geminiService';
+import { analyzeBodyComposition, getAiErrorMessage } from '../services/geminiService';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
@@ -122,7 +122,7 @@ export const BodyCompositionDialog: React.FC<BodyCompositionDialogProps> = ({ is
       console.error('Error analyzing composition:', error);
       Alert.alert(
         'Análisis fallido',
-        'No pudimos procesar el archivo. ¿Deseas ingresar los datos manualmente?',
+        `${getAiErrorMessage(error, 'No pudimos procesar el archivo.')} ¿Deseas ingresar los datos manualmente?`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Ingresar Manual', onPress: () => setStep('edit') }

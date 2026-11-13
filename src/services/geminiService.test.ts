@@ -1,4 +1,4 @@
-import { analyzeFood, getPiveAdvice } from './geminiService';
+import { analyzeFood, getAiErrorMessage, getPiveAdvice } from './geminiService';
 
 jest.mock('../firebase', () => ({
   auth: { currentUser: { getIdToken: jest.fn().mockResolvedValue('test-token') } },
@@ -42,11 +42,31 @@ describe('getPiveAdvice', () => {
     expect(JSON.stringify(body)).not.toContain('base64');
   });
 
-  it('returns a friendly fallback when the function fails', async () => {
+  it('rejects when the function fails, so a fallback is never saved as the day\'s advice', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     fetchMock.mockResolvedValue({ ok: false, status: 500, text: async () => 'boom' });
 
-    await expect(getPiveAdvice(macros, macros, undefined, [], '13:30')).resolves.toMatch(/Buen trabajo/);
+    await expect(getPiveAdvice(macros, macros, undefined, [], '13:30')).rejects.toThrow('boom');
+  });
+});
+
+describe('getAiErrorMessage', () => {
+  const failWith = (status: number, body: string) => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    fetchMock.mockResolvedValue({ ok: false, status, text: async () => body });
+    return analyzeFood({ text: 'arroz' }).catch((error) => error);
+  };
+
+  it('says the AI credits ran out when Gemini answers 402', async () => {
+    const error = await failWith(402, JSON.stringify({ error: 'Error analyzing food image', code: 'AI_CREDITS_DEPLETED' }));
+
+    expect(getAiErrorMessage(error, 'fallback')).toMatch(/Se acabaron los créditos de IA/);
+  });
+
+  it('keeps the fallback for errors without a known code', async () => {
+    expect(getAiErrorMessage(await failWith(500, JSON.stringify({ error: 'boom' })), 'fallback')).toBe('fallback');
+    expect(getAiErrorMessage(await failWith(400, 'Missing parameters'), 'fallback')).toBe('fallback');
+    expect(getAiErrorMessage({ code: 'permission-denied' }, 'fallback')).toBe('fallback');
   });
 });
 

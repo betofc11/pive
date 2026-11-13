@@ -4,7 +4,7 @@ import { Alert } from '../../src/lib/alert';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Upload, Camera, Image as ImageIcon, ChevronDown, ChevronUp, Plus, CheckCircle2, AlertCircle } from 'lucide-react-native';
-import { analyzeNutritionPlan, calculateMacrosFromIngredients } from '../../src/services/geminiService';
+import { analyzeNutritionPlan, calculateMacrosFromIngredients, getAiErrorMessage } from '../../src/services/geminiService';
 import { useAuth } from '../../src/hooks/useAuth';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
@@ -149,8 +149,8 @@ export default function PlanScreen() {
       }
     } catch (err: any) {
       console.error('Error analyzing document:', err);
-      setError('Error al analizar el archivo. Intenta con otra imagen o PDF.');
-      Alert.alert('Análisis fallido', 'No pudimos estructurar el plan. Intenta de nuevo.');
+      setError(getAiErrorMessage(err, 'Error al analizar el archivo. Intenta con otra imagen o PDF.'));
+      Alert.alert('Análisis fallido', getAiErrorMessage(err, 'No pudimos estructurar el plan. Intenta de nuevo.'));
     } finally {
       setLoading(false);
       setGlobalLoading(false);
@@ -190,7 +190,7 @@ export default function PlanScreen() {
       setTimeout(() => setLoggingMeal(null), 2000);
     } catch (err: any) {
       console.error("Error registering meal:", err);
-      setError("Hubo un error al registrar la comida. Por favor, intenta de nuevo.");
+      setError(getAiErrorMessage(err, "Hubo un error al registrar la comida. Por favor, intenta de nuevo."));
       setLoggingMeal(null);
       if (err?.message?.includes('Missing or insufficient permissions') || err?.message?.includes('permission-denied')) {
         handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/dailyLogs`);

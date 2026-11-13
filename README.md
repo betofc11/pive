@@ -61,7 +61,7 @@ Todo cuelga de `users/{uid}`, y las reglas solo dejan a cada usuario leer y escr
 
 ### Cloud Functions
 
-Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer …`). Si Gemini responde 429 (límite de uso) o 503 (modelo saturado), reintentan hasta 3 veces antes de devolver el error:
+Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer …`). Si Gemini responde 429 (límite de uso) o 503 (modelo saturado), reintentan hasta 3 veces antes de devolver el error. Cuando Gemini rechaza con 402 (sin créditos de prepago), 429 o 503, la función responde con ese mismo status y un `code` (`AI_CREDITS_DEPLETED`, `AI_RATE_LIMITED`, `AI_UNAVAILABLE`) que la app traduce a un mensaje claro (`getAiErrorMessage` en `geminiService`):
 
 | Función | Qué hace | Modelo |
 |---|---|---|

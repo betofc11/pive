@@ -75,6 +75,20 @@ const generateContentWithRetry = async (ai: GoogleGenAI, params: GenerateContent
   }
 };
 
+// Gemini refusals the user can understand, keyed by the status Gemini answers with.
+// The app turns the code into a message, so "out of credits" no longer looks like a bad file.
+const GEMINI_ERROR_CODES: Record<number, string> = {
+  402: "AI_CREDITS_DEPLETED",
+  429: "AI_RATE_LIMITED",
+  503: "AI_UNAVAILABLE",
+};
+
+// Answers a failed request: known Gemini refusals keep their status and carry a code, anything else is a 500
+const sendGeminiError = (res: any, error: any, errorLabel: string) => {
+  const code = error instanceof ApiError ? GEMINI_ERROR_CODES[error.status] : undefined;
+  res.status(code ? error.status : 500).json({ error: errorLabel, code, message: error?.message || String(error) });
+};
+
 // 2. Daily Advice function (light model)
 export const obtenerConsejoPive = onRequest(
   {
@@ -138,7 +152,7 @@ export const obtenerConsejoPive = onRequest(
       res.status(200).json({ advice: response.text });
     } catch (error: any) {
       console.error("Error in obtenerConsejoPive:", error);
-      res.status(500).json({ error: "Error generating advice", message: error?.message || String(error) });
+      sendGeminiError(res, error, "Error generating advice");
     }
   }
 );
@@ -226,7 +240,7 @@ export const analizarImagenComida = onRequest(
       res.status(200).json(JSON.parse(response.text || '{}'));
     } catch (error: any) {
       console.error("Error in analizarImagenComida:", error);
-      res.status(500).json({ error: "Error analyzing food image", message: error?.message || String(error) });
+      sendGeminiError(res, error, "Error analyzing food image");
     }
   }
 );
@@ -284,7 +298,7 @@ export const calcularMacrosIngredientes = onRequest(
       res.status(200).json(JSON.parse(response.text || '{}'));
     } catch (error: any) {
       console.error("Error in calcularMacrosIngredientes:", error);
-      res.status(500).json({ error: "Error calculating macros", message: error?.message || String(error) });
+      sendGeminiError(res, error, "Error calculating macros");
     }
   }
 );
@@ -405,7 +419,7 @@ export const analizarPlanNutricional = onRequest(
       res.status(200).json(JSON.parse(response.text || '{}'));
     } catch (error: any) {
       console.error("Error in analizarPlanNutricional:", error);
-      res.status(500).json({ error: "Error analyzing nutrition plan", message: error?.message || String(error) });
+      sendGeminiError(res, error, "Error analyzing nutrition plan");
     }
   }
 );
@@ -473,7 +487,7 @@ export const analizarComposicionCorporal = onRequest(
       res.status(200).json(JSON.parse(response.text || '{}'));
     } catch (error: any) {
       console.error("Error in analizarComposicionCorporal:", error);
-      res.status(500).json({ error: "Error analyzing body composition", message: error?.message || String(error) });
+      sendGeminiError(res, error, "Error analyzing body composition");
     }
   }
 );
@@ -569,7 +583,7 @@ export const analizarPlanEntrenamiento = onRequest(
       res.status(200).json(JSON.parse(response.text || '{}'));
     } catch (error: any) {
       console.error("Error in analizarPlanEntrenamiento:", error);
-      res.status(500).json({ error: "Error analyzing workout plan", message: error?.message || String(error) });
+      sendGeminiError(res, error, "Error analyzing workout plan");
     }
   }
 );

@@ -10,6 +10,28 @@ const getFunctionUrl = (name: string) => {
     : `https://us-central1-purevibe-57dd3.cloudfunctions.net/${name}`;
 };
 
+// What to tell the user for each code the Cloud Functions send when Gemini refuses a request
+const AI_ERROR_MESSAGES: Record<string, string> = {
+  AI_CREDITS_DEPLETED: 'Se acabaron los créditos de IA. Vuelve a funcionar en cuanto se recarguen.',
+  AI_RATE_LIMITED: 'La IA alcanzó su límite de uso. Intenta de nuevo en unos minutos.',
+  AI_UNAVAILABLE: 'La IA está saturada. Intenta de nuevo en unos minutos.',
+};
+
+const parseErrorCode = (errorText: string): string | undefined => {
+  try {
+    const code = JSON.parse(errorText)?.code;
+    return typeof code === 'string' ? code : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+// The message for a failed AI call: the reason when the server gave a known one, the fallback otherwise
+export const getAiErrorMessage = (error: unknown, fallback: string): string => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return (typeof code === 'string' && AI_ERROR_MESSAGES[code]) || fallback;
+};
+
 const callCloudFunction = async (name: string, payload: any) => {
   const url = getFunctionUrl(name);
   const user = auth.currentUser;
@@ -35,7 +57,7 @@ const callCloudFunction = async (name: string, payload: any) => {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Error calling Cloud Function ${name}:`, errorText);
-    throw new Error(errorText || `HTTP error ${response.status}`);
+    throw Object.assign(new Error(errorText || `HTTP error ${response.status}`), { code: parseErrorCode(errorText) });
   }
 
   return await response.json();
@@ -68,18 +90,14 @@ export const getPiveAdvice = async (
   meals?: any[],
   currentTime?: string
 ) => {
-  try {
-    const result = await callCloudFunction('obtenerConsejoPive', {
-      dailyMacros,
-      goals,
-      bodyMetrics,
-      // Only what the advice needs: meals carry a photo thumbnail that would bloat the Gemini prompt
-      meals: meals?.map(({ name, time, macros }) => ({ name, time, macros })),
-      currentTime
-    });
-    return result?.advice || '';
-  } catch (error) {
-    console.error('Error fetching Pive advice:', error);
-    return '¡Buen trabajo con tus registros de hoy! Mantén la consistencia y enfócate en tus metas diarias.';
-  }
+  // Errors reach the caller: a fallback returned here would be saved as the day's advice
+  const result = await callCloudFunction('obtenerConsejoPive', {
+    dailyMacros,
+    goals,
+    bodyMetrics,
+    // Only what the advice needs: meals carry a photo thumbnail that would bloat the Gemini prompt
+    meals: meals?.map(({ name, time, macros }) => ({ name, time, macros })),
+    currentTime
+  });
+  return result?.advice || '';
 };
