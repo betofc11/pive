@@ -6,7 +6,7 @@ Cada plan vive en su propia carpeta, `docs/plans/<slug>/`, y todas siguen la mis
 
 | Plan | Carpeta | Estado | De qué trata |
 |---|---|---|---|
-| Pive Coach | [`pive-coach/`](pive-coach/README.md) | En curso (fase 0 en curso) | Chat con Pive, comidas por tiempo con el plan nutricional como base, memoria, ubicación, límites listos para premium y rutinas híbridas |
+| Pive Coach | [`pive-coach/`](pive-coach/README.md) | En curso (fase 0 hecha; fase 1 pendiente) | Chat con Pive, comidas por tiempo con el plan nutricional como base, memoria, ubicación, límites listos para premium y rutinas híbridas |
 
 Estados posibles: **Propuesto**, **En curso**, **Pausado** (con el motivo), **Terminado**.
 
