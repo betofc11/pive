@@ -1,9 +1,9 @@
 import { Platform } from 'react-native';
 import { auth } from '../firebase';
 import { getLocalDateString, getLocalTimeString } from '../lib/utils';
-import type { Macros, Meal } from '../types';
 import type {
   AdviceRequest,
+  AdviceResponse,
   BodyCompositionAnalysis,
   FoodAnalysis,
   IngredientsMacros,
@@ -76,21 +76,18 @@ export const analyzeWorkoutPlan = async (input: { files: FileInput[] }) => {
   return await callCloudFunction<WorkoutPlanAnalysis>('analizarPlanEntrenamiento', input);
 };
 
-export const getPiveAdvice = async (dailyMacros: Macros, goals: Macros, meals: Meal[] = [], currentTime = '') => {
+/**
+ * Today's advice. The server reads the profile and today's log itself; it only needs the user's local date and
+ * time. Returns null if the call fails.
+ */
+export const getPiveAdvice = async (now = new Date()): Promise<AdviceResponse | null> => {
   try {
-    const payload: AdviceRequest = {
-      dailyMacros,
-      goals,
-      // Only what the advice needs: meals carry a photo thumbnail that would bloat the Gemini prompt.
-      // The time goes as local HH:mm, the same clock as currentTime.
-      meals: meals.map(({ name, time, macros }) => ({ name, time: getLocalTimeString(time), macros })),
-      currentTime,
-      localDate: getLocalDateString(),
-    };
-    const result = await callCloudFunction<{ advice?: string }>('obtenerConsejoPive', payload);
-    return result?.advice || '';
+    const payload: AdviceRequest = { localDate: getLocalDateString(), localTime: getLocalTimeString(now) };
+    const result = await callCloudFunction<Partial<AdviceResponse>>('obtenerConsejoPive', payload);
+    if (!result?.advice) return null;
+    return { advice: result.advice, slot: result.slot ?? null, proposal: result.proposal ?? null };
   } catch (error) {
     console.error('Error fetching Pive advice:', error);
-    return '¡Buen trabajo con tus registros de hoy! Mantén la consistencia y enfócate en tus metas diarias.';
+    return null;
   }
 };

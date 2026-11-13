@@ -1,16 +1,19 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Utensils } from 'lucide-react-native';
-import { Meal } from '../types';
+import { Meal, MealSlot } from '../types';
 import { MealCard } from './MealCard';
 import { Theme } from '../theme';
 
 interface MealListProps {
   meals: Meal[];
   onDeleteMeal: (meal: Meal) => void;
+  /** The slot of each meal by id, resolved (resolveDayMeals): saved, or inferred for older meals */
+  slots?: Record<string, MealSlot>;
+  onChangeSlot?: (meal: Meal, slot: MealSlot) => void;
 }
 
-export const MealList: React.FC<MealListProps> = ({ meals, onDeleteMeal }) => {
+export const MealList: React.FC<MealListProps> = ({ meals, onDeleteMeal, slots, onChangeSlot }) => {
   if (!meals || meals.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -24,7 +27,7 @@ export const MealList: React.FC<MealListProps> = ({ meals, onDeleteMeal }) => {
   return (
     <View style={styles.list}>
       {meals.map((meal) => (
-        <MealCard key={meal.id} meal={meal} onDelete={onDeleteMeal} />
+        <MealCard key={meal.id} meal={meal} slot={slots?.[meal.id]} onDelete={onDeleteMeal} onChangeSlot={onChangeSlot} />
       ))}
     </View>
   );

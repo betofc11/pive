@@ -6,7 +6,8 @@
 import { signInAnonymously, signOut } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, terminate } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { saveBodyMetrics, saveProfileInfo } from './profileService';
+import { clearDayStructure, saveBodyMetrics, saveDayStructure, saveProfileInfo } from './profileService';
+import { buildDayStructure } from '../../functions/src/shared/meals/dayStructure';
 
 // jest.mock factories can't use imports
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -49,6 +50,20 @@ it('saveBodyMetrics only touches the metrics, and also adds them to the history'
   expect(profile.displayName).toBe('Luis Fonseca');
   expect(profile.bio).toBe('Entreno 4 veces por semana.');
   expect(await readHistory()).toHaveLength(2);
+});
+
+it('saveDayStructure saves the customized slots, and clearDayStructure deletes them', async () => {
+  const structure = buildDayStructure('user', [
+    { slot: 'breakfast', weight: 30, window: { start: '06:00', end: '08:30' } },
+    { slot: 'dinner', weight: 70, window: { start: '19:00', end: '21:00' } },
+  ]);
+  await saveDayStructure(uid, structure);
+  expect((await readProfile()).dayStructure).toEqual(structure);
+
+  await clearDayStructure(uid);
+  const profile = await readProfile();
+  expect(profile).not.toHaveProperty('dayStructure');
+  expect(profile.displayName).toBe('Luis Fonseca');
 });
 
 it("doesn't let another user change someone else's profile or history", async () => {
