@@ -39,7 +39,7 @@ Si una fase es grande, puede ir en varios PRs (cada archivo sugiere cómo partir
 
 | Fase | Archivo | Estado | PRs | Depende de |
 |---|---|---|---|---|
-| 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Pendiente | — | — |
+| 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | En curso | — | — |
 | 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | Pendiente | — | 0 |
 | 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Pendiente | — | 0, 1 |
 | 3 · Chat + planes y límites | `fase-3-chat-limites.md` | Pendiente | — | 1, 2 |
