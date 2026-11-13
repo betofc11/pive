@@ -4,7 +4,9 @@
 
 ## 🚀 Características
 
-- **Dashboard diario**: macros y calorías del día frente a tus metas, tus comidas y un consejo de IA según lo que llevas. Puedes moverte entre días para ver o registrar fechas pasadas.
+- **Dashboard diario**: macros y calorías del día frente a tus metas, tus comidas y un consejo de IA sobre tu próxima comida. Puedes moverte entre días para ver o registrar fechas pasadas.
+- **Tiempos de comida**: cada comida tiene su tiempo (desayuno, almuerzo, meriendas, cena o snack), sugerido por la hora y la cantidad, y lo puedes cambiar al registrar o después. Lo que te queda del día se reparte entre los tiempos que te faltan. Los tiempos salen de tu plan, o los personalizas en el perfil ("Mis comidas del día").
+- **Consejo con tu plan como base**: Pive recomienda una opción de tu plan para la próxima comida y, si hace falta, le agrega un complemento o te reduce una porción, con cantidades calculadas en código. Lo registras con un toque ("Registrar así").
 - **Registro de comidas con IA**: saca una foto del plato, describe lo que comiste ("2 huevos revueltos y una tostada") o combina ambas. La IA propone los ingredientes con los macros de cada uno y dice lo que supuso, y tú los corriges antes de guardar. Si solo cambias una cantidad, los macros se recalculan en la app, sin volver a llamar a la IA. También hay entrada manual y comidas frecuentes.
 - **Plan nutricional**: sube tu plan (imagen, PDF o texto) y la IA extrae las metas de macros, los tiempos de comida con sus opciones (con macros por ingrediente), los intercambios y las restricciones. Registras una opción del plan con un toque.
 - **Composición corporal**: peso, % de grasa y masa muscular con gráficas de evolución. Se pueden cargar a mano o desde la foto/PDF de un reporte (con la fecha del reporte, si la trae).
@@ -61,8 +63,8 @@ Los archivos `*.web.ts` son la versión web de un módulo: el bundler elige solo
 
 Todo cuelga de `users/{uid}`, y las reglas solo dejan a cada usuario leer y escribir lo suyo:
 
-- `users/{uid}`: perfil, metas de macros, plan nutricional, rutina y sesión activa.
-- `dailyLogs/{YYYY-MM-DD}`: comidas y macros del día (se borran solos a los 90 días con el TTL de `expireAt`).
+- `users/{uid}`: perfil, metas de macros, plan nutricional, rutina, sesión activa y, si los personalizaste, tus tiempos de comida (`dayStructure`).
+- `dailyLogs/{YYYY-MM-DD}`: comidas (con su tiempo, `slot`) y macros del día, y el último consejo con su propuesta (se borran solos a los 90 días con el TTL de `expireAt`).
 - `strengthRecords`, `bodyMetricsHistory`, `savedMeals`.
 - `usage/{YYYY-MM-DD}`: tokens y costo estimado de la IA por función y por día. Solo lo escriben las Cloud Functions; el usuario lo puede leer.
 
@@ -72,14 +74,14 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
 
 | Función | Qué hace | Modelo |
 |---|---|---|
-| `obtenerConsejoPive` | Consejo según los macros y comidas del día → `{ advice }` | `gemini-3.5-flash-lite` |
+| `obtenerConsejoPive` | Consejo sobre la próxima comida. Recibe `{ localDate, localTime }`, lee el perfil y el log del día en Firestore, y responde `{ advice, slot, proposal }`: el texto, el tiempo del que habla y la comida exacta para "Registrar así" (o `null`). El payload anterior (`dailyMacros`…) sigue funcionando, con la lógica vieja | `gemini-3.5-flash-lite` |
 | `analizarImagenComida` | Comida desde foto, descripción o ambas → nombre, ingredientes con sus macros, total, supuestos y `mentionedSlot` (el tiempo de comida, solo si el usuario lo dijo) | `gemini-3.5-flash-lite` |
 | `calcularMacrosIngredientes` | Macros de una lista de ingredientes → totales y desglose. Solo manda a la IA los que no traen macros | `gemini-3.5-flash-lite` |
 | `analizarPlanNutricional` | Estructura un plan nutricional (imagen, PDF o texto): metas, tiempos (`slot`), opciones con macros por ingrediente, intercambios, equivalencias y restricciones | `gemini-3.8-flash` |
 | `analizarComposicionCorporal` | Extrae peso, % grasa, masa muscular y la fecha del reporte (`measuredAt`) | `gemini-3.8-flash` |
 | `analizarPlanEntrenamiento` | Estructura una rutina en días y ejercicios, con nombres canónicos en español y grupos musculares de una lista fija | `gemini-3.8-flash` |
 
-- **Los números los calcula el código:** el total de una comida es la suma de sus ingredientes, y el de una opción del plan, la de los suyos. Toda respuesta de la IA se valida y se normaliza antes de devolverla.
+- **Los números los calcula el código:** el total de una comida es la suma de sus ingredientes, y el de una opción del plan, la de los suyos. Los presupuestos por tiempo de comida, el ajuste de las opciones del plan y sus complementos salen de `functions/src/shared/meals/`. Toda respuesta de la IA se valida y se normaliza antes de devolverla.
 - **Prompts:** las instrucciones van en `systemInstruction` y los datos en `contents`. Los bloques comunes (`PIVE_CORE`, `NUTRITION_RULES`, `TRAINING_RULES`) están en `functions/src/ai/prompts/`.
 - **Registro de uso:** cada llamada a Gemini suma sus tokens (de entrada, cacheados, de salida y de *thinking*) y un costo estimado en `users/{uid}/usage/{YYYY-MM-DD}`. La fecha es la local del usuario (`localDate`, que la app manda en cada llamada). Si el registro falla, la respuesta sale igual. Los precios están en `MODEL_PRICES` (`functions/src/usageCost.ts`): verifícalos en la [página oficial de precios](https://ai.google.dev/gemini-api/docs/pricing).
 

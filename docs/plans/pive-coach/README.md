@@ -40,7 +40,7 @@ Si una fase es grande, puede ir en varios PRs (cada archivo sugiere cómo partir
 | Fase | Archivo | Estado | PRs | Depende de |
 |---|---|---|---|---|
 | 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Hecha (falta desplegar) | [#16](https://github.com/betofc11/pive/pull/16) | — |
-| 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | En curso | — | 0 |
+| 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | Hecha (falta desplegar) | PR_PLACEHOLDER | 0 |
 | 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Pendiente | — | 0, 1 |
 | 3 · Chat + planes y límites | `fase-3-chat-limites.md` | Pendiente | — | 1, 2 |
 | 4 · Rutinas híbridas | `fase-4-rutinas-hibridas.md` | Pendiente | — | 0 (2 y 3 opcionales) |
@@ -77,15 +77,20 @@ La fase 4 puede hacerse en paralelo a la 1–3. Si la fase 3 aún no está, la h
 | Tiempo de comida | `MealSlot` (`breakfast`, `morning_snack`, `lunch`, `afternoon_snack`, `dinner`, `extra`), `PlannedSlot`, `MEAL_SLOT_LABELS` | `functions/src/shared/meals/slots.ts` | 0–1 |
 | Origen del tiempo | `SlotSource` (`suggested`, `mentioned`, `plan`, `user`) | ídem | 1 |
 | Estructura del día | `DayStructure`, `resolveDayStructure` | `functions/src/shared/meals/dayStructure.ts` | 1 |
-| Sugerir tiempo | `suggestMealSlot` | `functions/src/shared/meals/slots.ts` | 1 |
+| Sugerir tiempo | `suggestMealSlot`, `inferSlot`, `resolveMealSlots` (comidas viejas sin tiempo) | `functions/src/shared/meals/slots.ts` | 1 |
+| Leer el plan | `PlanLike`, `categorySlot`, `optionMacros`, `planCategoriesForSlot`, `planFoods` | `functions/src/shared/meals/plan.ts` | 1 |
+| Tiempos en la app | `resolveDayMeals`, `suggestSlotForNewMeal`, `daySlotStatuses`, `SLOT_REASON_LABELS` | `src/lib/mealSlots.ts` | 1 |
+| Cambiar el tiempo de una comida | `updateMealInDailyLog` | `src/services/dailyLogService.ts` | 1 |
 | Presupuesto por tiempo | `computeSlotStatuses` | `functions/src/shared/meals/budget.ts` | 1 |
 | Ajuste del plan | `fitPlanOptions`, `buildMealFromFit` | `functions/src/shared/meals/planFit.ts` | 1 |
-| Complementos | `COMPLEMENTS` | `functions/src/shared/meals/complements.ts` | 1 |
+| Complementos | `COMPLEMENTS`, `COMPLEMENTS_REVIEWED` | `functions/src/shared/meals/complements.ts` | 1 |
+| Comparar nombres de alimentos | `foodTokens`, `foodNamesMatch` | `functions/src/shared/meals/planFit.ts` | 1 |
+| Consejo (servidor) | `prepareDayAdvice`, `parseAdviceChoice`, `buildAdviceProposal`; ruta vieja en `adviceLegacy.ts` | `functions/src/ai/tasks/advice.ts` | 1 |
 | Bloques de prompt | `PIVE_CORE`, `NUTRITION_RULES`, `TRAINING_RULES` | `functions/src/ai/prompts/` | 0 |
 | Contexto para la IA | `formatDayContext`, `formatMemoryContext`, `formatLocationContext` | `functions/src/ai/context/` | 1–2 |
 | Uso y costo | `recordUsage` (escribe), `featureUsageDelta`, `resolveUsageDate`, `MODEL_PRICES` (puros) | `functions/src/usage.ts`, `functions/src/usageCost.ts` | 0 |
-| Contratos de los endpoints | `FoodAnalysis`, `IngredientsMacros`, `NutritionPlanAnalysis`, `BodyCompositionAnalysis`, `WorkoutPlanAnalysis`, `AdviceRequest` | `functions/src/shared/api.ts` | 0 |
-| Fechas `YYYY-MM-DD` | `isDateKey`, `dateKeyToUtcMs`, `weekdayLabel` | `functions/src/shared/dates.ts` | 0 |
+| Contratos de los endpoints | `FoodAnalysis`, `IngredientsMacros`, `NutritionPlanAnalysis`, `BodyCompositionAnalysis`, `WorkoutPlanAnalysis`, `AdviceRequest`, `AdviceResponse`, `AdviceProposal` (`LegacyAdviceRequest` hasta la fase 3) | `functions/src/shared/api.ts` | 0–1 |
+| Fechas `YYYY-MM-DD` y horas `HH:mm` | `isDateKey`, `dateKeyToUtcMs`, `weekdayLabel`, `isClockTime`, `clockToMinutes`, `utcOffsetFromLocalClock`, `isoToLocalClock` | `functions/src/shared/dates.ts` | 0–1 |
 | Normalizar respuestas de la IA | `normalizeFoodAnalysis`, `mergeIngredientMacros`, `normalizeNutritionPlan`… | `functions/src/ai/tasks/` | 0 |
 | Límites y plan de pago | `PLAN_LIMITS`, `checkAndConsume`, `Entitlements` | `functions/src/limits.ts` | 3 |
 | Memoria | `MemoryFact`, `CoachMemory`, `MemoryOp`, `validateMemoryOps`, `applyMemoryOps` | `functions/src/shared/memory/` | 2 |
@@ -210,3 +215,55 @@ Una entrada por PR o por fase terminada. Lo importante son las **desviaciones de
   - **`MODEL_PRICES`** (`usageCost.ts`) usa precios de fuentes secundarias: hay que verificarlos.
   - **Composición corporal:** un reporte viejo igual reemplaza `bodyMetrics` en el perfil, como antes. Solo cambia la fecha de su entrada en el historial.
   - **Antes de la fase 1, desplegar:** `npm run deploy:functions`, `npm run deploy:rules`, y luego mergear. El servidor ignora el `bodyMetrics` que mandan las apps viejas.
+
+### 2026-11-13 · Fase 1 · PR PR_PLACEHOLDER
+- **Qué se hizo:**
+  - **PR A (lógica pura):** `meals/dayStructure.ts`, `meals/slots.ts` (sugerir e inferir), `meals/budget.ts`, `meals/complements.ts` (33 alimentos), `meals/planFit.ts` y `ai/context/day.ts`, con todos los casos de la tabla de tests.
+  - **PR B (datos y UI):**
+    - `slot`/`slotSource` en `Meal` y `updateMealInDailyLog`, con test de emulador;
+    - chips en `FoodDialog`;
+    - tiempo del plan al registrar una opción;
+    - etiqueta y selector en `MealCard`;
+    - "Mis comidas del día" en el perfil y la pregunta al subir un plan;
+    - franja de tiempos en el dashboard (era opcional).
+  - **PR C (consejo):**
+    - `obtenerConsejoPive` lee Firestore y responde con salida estructurada;
+    - el cliente regenera cuando cambia la próxima comida;
+    - botón **[Registrar así]**.
+  - Se corrieron lint, los dos `tsc`, `npm test` (303), `npm run test:emulator` (30, esta sesión sí tenía Java 21), `npm run build` y el build de Functions. **No se probó con Gemini** (no hay `GEMINI_API_KEY` en la nube) ni se vio la UI en un navegador (la app exige login real).
+- **Desviaciones del plan (y por qué):**
+  - **Un solo PR, encima del de la fase 0 ([#16](https://github.com/betofc11/pive/pull/16)), que no estaba mergeado.** Los commits van por PR: A, B y C. Hay que mergear #16 antes que este.
+  - **Los tamaños se comparan con el presupuesto *planeado* del tiempo** (meta del día × peso), no con lo que queda hoy. Así, ir pasado o corto en el día no cambia cómo se clasifica una comida. Si el restante fuera la base, con el día pasado todo parecería "comida principal".
+  - **`same_slot` exige cercanía:** algo registrado a ≤ 60 min de una comida de un tiempo, dentro de su ventana, va con ella (`SAME_SLOT_MAX_GAP_MIN`). Sin eso, las galletas de las 22:30 se sumaban a la cena de las 19:30, y la tabla pide `extra`.
+  - **Razón `size` vs `time`:** es `size` cuando una ventana se pisaba con otra o la cantidad descartó una comida principal; si no, `time`.
+  - **El servidor deduce el huso del usuario** de `localDate` + `localTime` contra su propio reloj, redondeado a 15 min (`utcOffsetFromLocalClock`). Así no hubo que cambiar el contrato para pasar las horas ISO de las comidas a `HH:mm` local.
+  - **Nuevo `meals/plan.ts`** para leer planes de cualquier época: `categorySlot`, `optionMacros`, `planCategoriesForSlot` y `planFoods`.
+  - **Dos categorías en el mismo tiempo** (Cena + Snack nocturno): en la estructura sus pesos se suman. El consejo ajusta las opciones de la principal (la de más kcal) contra su parte del presupuesto.
+  - **Reglas extra de los complementos:**
+    - no se sugiere nada que la opción ya tenga;
+    - un complemento tiene que cerrar al menos la mitad de lo que falta (`MIN_TARGET_CLOSED`), y para proteína, al menos el 20% de sus kcal tienen que venir de proteína;
+    - de los alimentos del plan solo se usan los que están en g o ml;
+    - `ComplementSuggestion` suma `unit` y `pieces` ("4 claras"), para que el modelo no divida.
+  - **Orden de las opciones:** puntaje = 8 × proteína que falta + |kcal de brecha|. La proteína pesa el doble, y el ejemplo de §3.8 sale en ese orden.
+  - **Opciones sin macros** (planes viejos): quedan fuera del ajuste. El contexto dice que no hay macros para calcular.
+  - **`formatDayContext`** acepta `ingredientsByOption` (opcional) y numera opciones, complementos y reducciones desde 1. El modelo responde con esos números y el servidor los valida.
+  - **El consejo es solo para hoy.** En días pasados se muestra el consejo guardado o un aviso, y ✨ queda desactivado. Además de los cambios de datos, se revisa cada 5 min si cambió la próxima comida.
+  - **Las restricciones del plan van en el contexto del consejo** ("RESTRICCIONES DE SU PLAN"), mientras llega la memoria.
+  - **Comidas de tamaño desconocido** (entrada manual antes de calcular): se toman como 15% del día para el chip, y al guardar se vuelve a sugerir con los macros reales.
+  - **[Registrar así]** agrega la comida y limpia `adviceProposal` en la misma transacción (`addMealToDailyLog(…, { clearAdviceProposal: true })`). La comida no guarda ingredientes: `Meal` no tiene ese campo.
+  - **Sin editar la hora desde `MealCard`** (era opcional). `updateMealInDailyLog` ya acepta `time`.
+  - **La ruta vieja del consejo** vive en `ai/tasks/adviceLegacy.ts`. `AdviceRequest` ahora es el contrato nuevo y el viejo se llama `LegacyAdviceRequest`.
+- **Notas para la fase 2:**
+  - **`excludeFoods`** ya funciona en `fitPlanOptions`. Se llena en `prepareDayAdvice` (`functions/src/ai/tasks/advice.ts`), que hoy pasa `[]`. Para comparar nombres de alimentos usa `foodNamesMatch` (`meals/planFit.ts`): ignora acentos, plurales y palabras como "de" o "en".
+  - **`formatDayContext`** está en `functions/src/ai/context/day.ts`. `formatMemoryContext` y `formatLocationContext` van al lado, y `prepareDayAdvice` los antepone al día (orden para el caché: ubicación y memoria, luego el día).
+  - **Cuando la memoria tenga `restriction.plan_*`,** quita la línea "RESTRICCIONES DE SU PLAN" de `prepareDayAdvice` para no repetirla.
+  - **Con `timeZone` en el perfil,** `prepareDayAdvice` puede usarlo en vez de `utcOffsetFromLocalClock`.
+  - **Un plan con una sola categoría** define un día de un solo tiempo (100%), y entonces una comida normal puede caer en `extra` por tamaño. Si molesta, se puede completar la estructura con los tiempos por defecto.
+- **Notas para la fase 3:**
+  - **Hay que borrar el `TODO(fase-3)`** de la ruta vieja: `endpoints/obtenerConsejoPive.ts`, `ai/tasks/adviceLegacy.ts` y `LegacyAdviceRequest`.
+  - **Piezas que el chat puede reutilizar:**
+    - `resolveMealSlots` + `computeSlotStatuses` para `getDaySummary`;
+    - `planCategoriesForSlot` + `fitPlanOptions` para `getPlanOptions`;
+    - `buildMealFromFit` y el tipo `AdviceProposal` para `proposeMealLog`;
+    - `SlotChips` para la tarjeta de propuesta, y el hook `useDailyLog`.
+  - **El cliente** calcula la próxima comida con `daySlotStatuses` (`src/lib/mealSlots.ts`), con los mismos números que el servidor.
