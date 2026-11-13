@@ -84,7 +84,7 @@ npm run lint && npx tsc --noEmit && npx tsc --noEmit -p functions && npm test &&
 ## Al terminar
 
 - [ ] `README.md` de la raíz: los permisos de Apple Health que se leen.
-- [ ] `docs/plan/README.md`: estado, PR y bitácora.
+- [ ] `docs/plans/pive-coach/README.md`: estado, PR y bitácora.
 
 ---
 
@@ -93,9 +93,9 @@ npm run lint && npx tsc --noEmit && npx tsc --noEmit -p functions && npm test &&
 ```
 Vamos a implementar la Fase 5 del plan de Pive Coach (importar actividad de Apple Health).
 
-1. Lee CLAUDE.md, docs/plan/README.md (incluida la bitácora) y docs/plan/fase-5-apple-health.md completo.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md (incluida la bitácora) y docs/plans/pive-coach/fase-5-apple-health.md completo.
 2. Confirma en la tabla de estado que la Fase 4 esté hecha y que ya existe una build nativa de iOS. Si no, avísame antes de empezar.
 3. Revisa el "Punto de partida" contra el código actual y la API de react-native-health instalada. Si algo no coincide, dímelo y propón el ajuste.
 4. Implementa las tareas y los tests. La prueba real la haré yo en el iPhone: dime exactamente qué revisar.
-5. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md y abre el PR.
+5. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md y abre el PR.
 ```

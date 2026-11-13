@@ -46,6 +46,10 @@ CI (`.github/workflows/ci.yml`) corre lint, los dos typechecks, los tests unitar
 - **Despliega las Functions antes que la app** cuando cambie un contrato entre ambas.
 - **En sesiones en la nube no hay `GEMINI_API_KEY`.** La lógica se prueba con tests de funciones puras; las pruebas reales con IA se hacen en local o después del deploy.
 
-## Plan en curso
+## Planes de trabajo
 
-El roadmap de Pive Coach (chat, comidas por tiempo, memoria, ubicación, rutinas híbridas) está en `docs/plan/`. Si te piden trabajar en una fase, lee primero `docs/plan/README.md` y el archivo de esa fase.
+Los planes viven en `docs/plans/<slug>/`, con un índice en `docs/plans/README.md`.
+
+- **Plan en curso:** `docs/plans/pive-coach/` (chat, comidas por tiempo, memoria, ubicación, rutinas híbridas).
+- **Si te piden trabajar en una fase:** lee primero el `README.md` del plan y el archivo de esa fase.
+- **Si te piden un plan nuevo:** copia `docs/plans/_plantilla/` y agrégalo al índice.

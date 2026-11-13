@@ -288,7 +288,7 @@ npm run test:emulator
 ## Al terminar
 
 - [ ] `README.md` de la raíz: endpoint `resolverUbicacion` y secreto `GEOCODING_API_KEY`.
-- [ ] `docs/plan/README.md`: estado, PRs y bitácora.
+- [ ] `docs/plans/pive-coach/README.md`: estado, PRs y bitácora.
 - [ ] Notas para la Fase 3:
   - `consolidateSession` está lista para programarse;
   - `refreshAutoLocation({ allowPrompt: true })` se llama al abrir el chat.
@@ -300,10 +300,10 @@ npm run test:emulator
 ```
 Vamos a implementar la Fase 2 del plan de Pive Coach (memoria + ubicación).
 
-1. Lee CLAUDE.md, docs/plan/README.md (incluida la bitácora de las fases 0 y 1) y docs/plan/fase-2-memoria-ubicacion.md completo, y las secciones §4 y §5 de docs/plan/diseno.md.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md (incluida la bitácora de las fases 0 y 1) y docs/plans/pive-coach/fase-2-memoria-ubicacion.md completo, y las secciones §4 y §5 de docs/plans/pive-coach/diseno.md.
 2. Confirma en la tabla de estado que las Fases 0 y 1 estén hechas. Si no, avísame antes de empezar.
 3. Revisa el "Punto de partida" contra el código actual. Si algo no coincide, dímelo y propón el ajuste antes de cambiar nada.
 4. Marca la fase como "En curso". Haz primero el PR A (memoria, empezando por el módulo puro y todos los casos de la tabla de tests) y luego el PR B (ubicación).
 5. Corre las verificaciones de la fase.
-6. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md, deja notas para la Fase 3, recuérdame los pasos que tengo que hacer yo (API key de Geocoding) y abre el PR.
+6. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md, deja notas para la Fase 3, recuérdame los pasos que tengo que hacer yo (API key de Geocoding) y abre el PR.
 ```

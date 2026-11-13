@@ -296,7 +296,7 @@ npm run test:emulator    # si la sesión no tiene Java 21, lo corre la CI
 
 ## Al terminar
 
-- [ ] `docs/plan/README.md`: fase 0 = Hecha, con PRs y entrada en la bitácora.
+- [ ] `docs/plans/pive-coach/README.md`: fase 0 = Hecha, con PRs y entrada en la bitácora.
 - [ ] Notas para la fase 1 en la bitácora: cómo se importa `functions/src/shared` desde la app (ruta exacta usada) y cualquier detalle de build.
 - [ ] **Deploy** (lo hace el usuario):
   1. `npm run deploy:functions`;
@@ -310,10 +310,10 @@ npm run test:emulator    # si la sesión no tiene Java 21, lo corre la CI
 ```
 Vamos a implementar la Fase 0 del plan de Pive Coach (base común de prompts y medición).
 
-1. Lee CLAUDE.md, docs/plan/README.md y docs/plan/fase-0-base-prompts.md completo, y las secciones §1 y §2 de docs/plan/diseno.md.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md y docs/plans/pive-coach/fase-0-base-prompts.md completo, y las secciones §1 y §2 de docs/plans/pive-coach/diseno.md.
 2. Revisa el "Punto de partida" contra el código actual. Si algo no coincide, dímelo y propón el ajuste antes de cambiar nada.
-3. Marca la fase como "En curso" en docs/plan/README.md.
+3. Marca la fase como "En curso" en docs/plans/pive-coach/README.md.
 4. Empieza por el PR A. Lo primero es comprobar que la app, la web, Jest y las Functions pueden usar functions/src/shared (tarea A1). Si eso no funciona, para y cuéntame.
 5. Implementa las tareas en orden, con commits pequeños, y corre las verificaciones de la fase.
-6. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md, deja notas para la Fase 1 y abre el PR.
+6. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md, deja notas para la Fase 1 y abre el PR.
 ```

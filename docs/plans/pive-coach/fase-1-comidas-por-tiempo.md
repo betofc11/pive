@@ -327,7 +327,7 @@ npm run test:emulator
 ## Al terminar
 
 - [ ] `README.md` de la raíz: `obtenerConsejoPive` ahora lee Firestore y tiene un request nuevo.
-- [ ] `docs/plan/README.md`: estado, PRs y bitácora.
+- [ ] `docs/plans/pive-coach/README.md`: estado, PRs y bitácora.
 - [ ] Notas para las fases 2 y 3 en la bitácora:
   - dónde quedó `formatDayContext`;
   - que `excludeFoods` está listo;
@@ -341,10 +341,10 @@ npm run test:emulator
 ```
 Vamos a implementar la Fase 1 del plan de Pive Coach (comidas por tiempo + el plan como base del consejo).
 
-1. Lee CLAUDE.md, docs/plan/README.md (incluida la bitácora de la Fase 0) y docs/plan/fase-1-comidas-por-tiempo.md completo, y la sección §3 de docs/plan/diseno.md.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md (incluida la bitácora de la Fase 0) y docs/plans/pive-coach/fase-1-comidas-por-tiempo.md completo, y la sección §3 de docs/plans/pive-coach/diseno.md.
 2. Confirma en la tabla de estado que la Fase 0 esté hecha. Si no, avísame antes de empezar.
 3. Revisa el "Punto de partida" contra el código actual. Si algo no coincide, dímelo y propón el ajuste antes de cambiar nada.
 4. Marca la fase como "En curso". Empieza por el PR A (lógica pura con todos los tests de la tabla), luego el B (datos y UI) y luego el C (consejo).
 5. Corre las verificaciones de la fase en cada PR.
-6. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md, deja notas para las Fases 2 y 3 y abre el PR.
+6. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md, deja notas para las Fases 2 y 3 y abre el PR.
 ```

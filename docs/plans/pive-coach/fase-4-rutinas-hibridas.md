@@ -194,7 +194,7 @@ npm run test:emulator
 ## Al terminar
 
 - [ ] `README.md` de la raíz: endpoint `generarPlanEntrenamiento`.
-- [ ] `docs/plan/README.md`: estado, PRs y bitácora.
+- [ ] `docs/plans/pive-coach/README.md`: estado, PRs y bitácora.
 - [ ] Notas para la Fase 5: el formato de `CompletedWorkout` con `externalId`.
 
 ---
@@ -204,10 +204,10 @@ npm run test:emulator
 ```
 Vamos a implementar la Fase 4 del plan de Pive Coach (rutinas híbridas).
 
-1. Lee CLAUDE.md, docs/plan/README.md (incluida la bitácora) y docs/plan/fase-4-rutinas-hibridas.md completo, y la sección §8 de docs/plan/diseno.md.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md (incluida la bitácora) y docs/plans/pive-coach/fase-4-rutinas-hibridas.md completo, y la sección §8 de docs/plans/pive-coach/diseno.md.
 2. Confirma en la tabla de estado que la Fase 0 esté hecha, y dime cuáles de las Fases 2 y 3 lo están (cambian partes opcionales de esta fase).
 3. Revisa el "Punto de partida" contra el código actual. Si algo no coincide, dímelo y propón el ajuste antes de cambiar nada.
 4. Marca la fase como "En curso". Haz el PR A (datos, adaptadores y sesión), luego el B (extractor y generador) y luego el C (UI de carrera y actividad suelta).
 5. Corre las verificaciones de la fase.
-6. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md, deja notas para la Fase 5 y abre el PR.
+6. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md, deja notas para la Fase 5 y abre el PR.
 ```

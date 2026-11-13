@@ -1,5 +1,7 @@
 # Plan Pive Coach
 
+> Parte de [`docs/plans/`](../README.md). Carpeta: `docs/plans/pive-coach/`.
+
 Roadmap para convertir a Pive en un coach de nutrición y entrenamiento híbrido. Tiene cuatro partes:
 
 - un chat con herramientas;
@@ -19,7 +21,7 @@ Roadmap para convertir a Pive en un coach de nutrición y entrenamiento híbrido
 
 ## Cómo usar el plan: un chat por fase
 
-1. **El plan tiene que estar en `main`.** Los chats nuevos parten de `main`, así que mergea el PR que trae `docs/plan/` antes de abrir el primero.
+1. **El plan tiene que estar en `main`.** Los chats nuevos parten de `main`, así que mergea el PR que trae `docs/plans/pive-coach/` antes de abrir el primero.
 2. **Abre un chat nuevo por fase** y pega el *prompt de arranque* que está al final del archivo de la fase.
 3. **El chat lee** `CLAUDE.md` (lo carga solo), este README, el archivo de la fase y las secciones de `diseno.md` que la fase indica.
 4. **Si el punto de partida no coincide con el código**, el chat lo dice y propone el ajuste antes de tocar nada.
@@ -131,7 +133,7 @@ La fase 4 puede hacerse en paralelo a la 1–3. Si la fase 3 aún no está, la h
 
 | Cuándo | Qué |
 |---|---|
-| Antes de la fase 0 | Mergear el PR que trae `docs/plan/` y `CLAUDE.md` |
+| Antes de la fase 0 | Mergear el PR que trae `docs/plans/pive-coach/` y `CLAUDE.md` |
 | Al final de cada fase | Revisar y mergear los PRs. Desplegar: `npm run deploy:functions`, luego `npm run deploy:rules` (e índices si la fase los trae), luego la app (Vercel despliega solo al mergear) |
 | Fase 0 | Opcional: correr las evals con tu `GEMINI_API_KEY` en local |
 | Fase 1 | Revisar la tabla de complementos, idealmente con tu nutricionista. Confirmar los pesos y horarios por defecto de los tiempos de comida |
@@ -149,11 +151,11 @@ Cada archivo de fase trae el suyo ya rellenado. La forma general es:
 ```
 Vamos a implementar la Fase N del plan de Pive Coach.
 
-1. Lee CLAUDE.md, docs/plan/README.md y docs/plan/fase-N-….md completo, y las secciones de docs/plan/diseno.md que indica.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md y docs/plans/pive-coach/fase-N-….md completo, y las secciones de docs/plans/pive-coach/diseno.md que indica.
 2. Confirma en la tabla de estado que las fases de las que depende estén hechas. Si no, avísame antes de empezar.
 3. Revisa el "Punto de partida" contra el código actual. Si algo no coincide, dímelo y propón el ajuste antes de cambiar nada.
 4. Marca la fase como "En curso" e implementa las tareas en orden, con commits pequeños. Corre las verificaciones de la fase.
-5. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md, deja notas para la siguiente fase y abre el PR.
+5. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md, deja notas para la siguiente fase y abre el PR.
 ```
 
 ---
@@ -170,7 +172,7 @@ Una entrada por PR o por fase terminada. Lo importante son las **desviaciones de
 -->
 
 ### 2026-11-13 · Plan
-- Se armó el plan completo en `docs/plan/` y se agregó `CLAUDE.md`.
+- Se armó el plan completo en `docs/plans/pive-coach/` y se agregó `CLAUDE.md`.
 - Notas para la fase 0:
   - el `youtubeUrl` que genera la IA no se usa en la app (`ActiveWorkout` usa `openYouTubeSearch(exercise.name)`);
   - las Functions todavía no usan Firestore.

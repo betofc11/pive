@@ -286,7 +286,7 @@ npm run test:emulator
   - endpoints `chatPive`, `chatPiveAccion` y `consolidarMemoria`;
   - límites;
   - índices y cómo desplegarlos.
-- [ ] `docs/plan/README.md`: estado, PRs y bitácora.
+- [ ] `docs/plans/pive-coach/README.md`: estado, PRs y bitácora.
 - [ ] Notas para la Fase 4: cómo registrar una herramienta nueva en `functions/src/chat/tools.ts`.
 
 ---
@@ -296,10 +296,10 @@ npm run test:emulator
 ```
 Vamos a implementar la Fase 3 del plan de Pive Coach (chat + planes y límites).
 
-1. Lee CLAUDE.md, docs/plan/README.md (incluida la bitácora de las fases 0–2) y docs/plan/fase-3-chat-limites.md completo, y las secciones §4.3, §5, §6 y §7 de docs/plan/diseno.md.
+1. Lee CLAUDE.md, docs/plans/pive-coach/README.md (incluida la bitácora de las fases 0–2) y docs/plans/pive-coach/fase-3-chat-limites.md completo, y las secciones §4.3, §5, §6 y §7 de docs/plans/pive-coach/diseno.md.
 2. Confirma en la tabla de estado que las Fases 1 y 2 estén hechas. Si no, avísame antes de empezar.
 3. Revisa el "Punto de partida" contra el código actual. Si algo no coincide, dímelo y propón el ajuste antes de cambiar nada.
 4. Marca la fase como "En curso". Haz el PR A (planes y límites), luego el B (backend del chat y consolidación) y luego el C (UI).
 5. Corre las verificaciones de la fase en cada PR.
-6. Al terminar: actualiza el estado y la bitácora en docs/plan/README.md, deja notas para la Fase 4, recuérdame los pasos de deploy (incluidos los índices) y abre el PR.
+6. Al terminar: actualiza el estado y la bitácora en docs/plans/pive-coach/README.md, deja notas para la Fase 4, recuérdame los pasos de deploy (incluidos los índices) y abre el PR.
 ```
