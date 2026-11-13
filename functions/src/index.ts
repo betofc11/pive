@@ -4,8 +4,12 @@ import { ApiError, GenerateContentParameters, GoogleGenAI, Type } from "@google/
 
 admin.initializeApp();
 
-const FLASH_MODEL = "gemini-2.5-flash";
-const PRO_MODEL = "gemini-2.5-pro";
+// gemini-2.5-flash and gemini-2.5-pro were deprecated on 2026-11-02 and are shut down on 2026-12-01.
+// These are the successors Google itself reroutes them to.
+// Short calls: advice, a food photo, a list of ingredients
+const LIGHT_MODEL = "gemini-3.5-flash-lite";
+// Long structured extraction from PDFs and images: nutrition plans, body composition, workout plans
+const HEAVY_MODEL = "gemini-3.8-flash";
 
 // Helper to verify Firebase ID Token in requests
 const verifyAuthToken = async (req: any, res: any): Promise<string | null> => {
@@ -71,7 +75,7 @@ const generateContentWithRetry = async (ai: GoogleGenAI, params: GenerateContent
   }
 };
 
-// 2. Daily Advice function (Flash model)
+// 2. Daily Advice function (light model)
 export const obtenerConsejoPive = onRequest(
   {
     cors: true,
@@ -124,7 +128,7 @@ export const obtenerConsejoPive = onRequest(
       `;
 
       const response = await generateContentWithRetry(ai, {
-        model: FLASH_MODEL,
+        model: LIGHT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemInstruction,
@@ -139,7 +143,7 @@ export const obtenerConsejoPive = onRequest(
   }
 );
 
-// 3. Analyze Food from an image, a text description, or both (Flash model)
+// 3. Analyze Food from an image, a text description, or both (light model)
 export const analizarImagenComida = onRequest(
   {
     cors: true,
@@ -183,7 +187,7 @@ export const analizarImagenComida = onRequest(
       }
 
       const response = await generateContentWithRetry(ai, {
-        model: FLASH_MODEL,
+        model: LIGHT_MODEL,
         contents: [{ parts }],
         config: {
           responseMimeType: "application/json",
@@ -227,7 +231,7 @@ export const analizarImagenComida = onRequest(
   }
 );
 
-// 4. Calculate Macros from Ingredients list (Flash model)
+// 4. Calculate Macros from Ingredients list (light model)
 export const calcularMacrosIngredientes = onRequest(
   {
     cors: true,
@@ -260,7 +264,7 @@ export const calcularMacrosIngredientes = onRequest(
       `;
 
       const response = await generateContentWithRetry(ai, {
-        model: FLASH_MODEL,
+        model: LIGHT_MODEL,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -285,7 +289,7 @@ export const calcularMacrosIngredientes = onRequest(
   }
 );
 
-// 5. Analyze Nutrition Plan (Pro model)
+// 5. Analyze Nutrition Plan (heavy model)
 export const analizarPlanNutricional = onRequest(
   {
     cors: true,
@@ -325,7 +329,7 @@ export const analizarPlanNutricional = onRequest(
       }
 
       const response = await generateContentWithRetry(ai, {
-        model: PRO_MODEL,
+        model: HEAVY_MODEL,
         contents: [{ parts }],
         config: {
           responseMimeType: "application/json",
@@ -406,7 +410,7 @@ export const analizarPlanNutricional = onRequest(
   }
 );
 
-// 6. Analyze Body Composition (Pro model)
+// 6. Analyze Body Composition (heavy model)
 export const analizarComposicionCorporal = onRequest(
   {
     cors: true,
@@ -451,7 +455,7 @@ export const analizarComposicionCorporal = onRequest(
       }
 
       const response = await generateContentWithRetry(ai, {
-        model: PRO_MODEL,
+        model: HEAVY_MODEL,
         contents: [{ parts }],
         config: {
           responseMimeType: "application/json",
@@ -474,7 +478,7 @@ export const analizarComposicionCorporal = onRequest(
   }
 );
 
-// 7. Analyze Workout Plan (Pro model)
+// 7. Analyze Workout Plan (heavy model)
 export const analizarPlanEntrenamiento = onRequest(
   {
     cors: true,
@@ -519,7 +523,7 @@ export const analizarPlanEntrenamiento = onRequest(
       });
 
       const response = await generateContentWithRetry(ai, {
-        model: PRO_MODEL,
+        model: HEAVY_MODEL,
         contents: [{ parts }],
         config: {
           responseMimeType: "application/json",
