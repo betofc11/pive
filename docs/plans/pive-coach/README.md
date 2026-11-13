@@ -39,7 +39,7 @@ Si una fase es grande, puede ir en varios PRs (cada archivo sugiere cómo partir
 
 | Fase | Archivo | Estado | PRs | Depende de |
 |---|---|---|---|---|
-| 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Hecha (falta desplegar) | PR_LINK | — |
+| 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Hecha (falta desplegar) | [#16](https://github.com/betofc11/pive/pull/16) | — |
 | 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | Pendiente | — | 0 |
 | 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Pendiente | — | 0, 1 |
 | 3 · Chat + planes y límites | `fase-3-chat-limites.md` | Pendiente | — | 1, 2 |
@@ -180,7 +180,7 @@ Una entrada por PR o por fase terminada. Lo importante son las **desviaciones de
   - el `youtubeUrl` que genera la IA no se usa en la app (`ActiveWorkout` usa `openYouTubeSearch(exercise.name)`);
   - las Functions todavía no usan Firestore.
 
-### 2026-11-13 · Fase 0 · PR PR_LINK
+### 2026-11-13 · Fase 0 · PR [#16](https://github.com/betofc11/pive/pull/16)
 - **Qué se hizo:**
   - `functions/src/shared/`: `macros`, `ingredients`, `meals/slots`, `workouts/exercises`, `config`, más `dates` y `api` (contratos de los endpoints).
   - `index.ts` partido en `http.ts`, `ai/` (cliente, prompts, esquemas y tareas) y `endpoints/`. Las instrucciones van en `systemInstruction`.
