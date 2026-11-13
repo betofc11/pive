@@ -13,6 +13,31 @@ const enumOf = (values: readonly string[], extra: Partial<Schema> = {}): Schema 
   ...extra,
 });
 
+/** The daily advice: the text, and which plan option, complement and reduction it recommends (numbered from 1) */
+export const ADVICE_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    text: { type: Type.STRING, description: "El consejo, en máximo 2 frases" },
+    optionIndex: {
+      type: Type.INTEGER,
+      nullable: true,
+      description: "Número de la opción del plan que recomiendas, tal como aparece en el contexto (Opción 1 → 1). null si no recomiendas una opción del plan.",
+    },
+    complementIndex: {
+      type: Type.INTEGER,
+      nullable: true,
+      description: "Número del complemento de esa opción que recomiendas (1, 2, 3). null si no agregas ninguno.",
+    },
+    reductionIndex: {
+      type: Type.INTEGER,
+      nullable: true,
+      description: "Número de la reducción de esa opción que recomiendas (1, 2, 3). null si no reduces ninguna porción.",
+    },
+  },
+  required: ["text", "optionIndex", "complementIndex", "reductionIndex"],
+  propertyOrdering: ["text", "optionIndex", "complementIndex", "reductionIndex"],
+};
+
 export const MACROS_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {

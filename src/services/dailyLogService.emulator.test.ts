@@ -67,6 +67,21 @@ describe('addMealToDailyLog', () => {
     expect(log.macros).toEqual({ protein: 20, carbs: 40, fats: 10, calories: 350 });
   });
 
+  it('can clear the advice proposal in the same write (Registrar así)', async () => {
+    const date = nextDate();
+    await addMealToDailyLog(uid, date, meal('a', 100));
+    const proposal = { slot: 'lunch', name: 'Arroz con pollo', macros: meal('p').macros, ingredients: [] };
+    await setDoc(doc(db, `users/${uid}/dailyLogs`, date), { adviceProposal: proposal, adviceSlot: 'lunch' }, { merge: true });
+
+    await addMealToDailyLog(uid, date, { ...meal('p', 100), slot: 'lunch', slotSource: 'plan' }, { clearAdviceProposal: true });
+
+    const log = await readLog(date);
+    expect(log.adviceProposal).toBeNull();
+    expect(log.adviceSlot).toBe('lunch');
+    expect(log.meals.map((m: Meal) => m.id)).toEqual(['a', 'p']);
+    expect(log.macros.calories).toBe(200);
+  });
+
   it('keeps every meal when many are saved at the same time', async () => {
     const date = nextDate();
     await Promise.all(Array.from({ length: 20 }, (_, i) => addMealToDailyLog(uid, date, meal(`m${i}`))));

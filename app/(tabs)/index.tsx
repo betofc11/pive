@@ -3,8 +3,9 @@ import { StyleSheet, Text, View, ScrollView, Pressable, TouchableOpacity, Animat
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../src/hooks/useAuth';
 import { getPiveAdvice } from '../../src/services/geminiService';
-import { removeMealFromDailyLog, updateMealInDailyLog } from '../../src/services/dailyLogService';
-import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight } from 'lucide-react-native';
+import { addMealToDailyLog, removeMealFromDailyLog, updateMealInDailyLog } from '../../src/services/dailyLogService';
+import { saveMealToHealthKit } from '../../src/services/healthKitService';
+import { Utensils, Wheat, Droplets, Leaf, Check, Timer, Sparkles, ArrowRight, Plus } from 'lucide-react-native';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
 import { DailyLog, Meal, MealSlot } from '../../src/types';
@@ -17,17 +18,18 @@ import { router } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import { useHeaderScroll } from './_layout';
 
-const getTimeOfDayPeriod = (date: Date) => {
-  const hour = date.getHours();
-  if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 19) return 'afternoon';
-  return 'night';
-};
+// How often the dashboard checks whether the next meal changed (a slot's window passed): only then, or when the
+// meals change, or after 3 h, is the advice generated again
+const ADVICE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const ADVICE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+const PAST_DAY_ADVICE = 'El consejo de Pive es para hoy: vuelve a Hoy para ver qué te toca en tu próxima comida.';
 
 export default function Dashboard() {
   const { profile, user } = useAuth();
   const [advice, setAdvice] = useState<string>('');
   const [generatingAdvice, setGeneratingAdvice] = useState(false);
+  const [loggingProposal, setLoggingProposal] = useState(false);
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
   const { setScrolled, selectedDate } = useHeaderScroll();
 
@@ -60,7 +62,7 @@ export default function Dashboard() {
           if (data.aiAdvice) {
             setAdvice(data.aiAdvice);
           } else {
-            setAdvice('Generando consejo de Pive...');
+            setAdvice(selectedDate === getLocalDateString() ? 'Generando consejo de Pive...' : PAST_DAY_ADVICE);
           }
         } else {
           setDailyLog(null);
@@ -119,41 +121,38 @@ export default function Dashboard() {
     const profile = profileRef.current;
 
     if (!user || !dailyLog || !profile?.macroGoals) return;
+    // The advice talks about the next meal: only today has one
+    const activeDate = selectedDateRef.current;
+    if (activeDate !== getLocalDateString()) return;
 
-    const macrosChanged = !dailyLog.adviceMacros || 
+    const macrosChanged = !dailyLog.adviceMacros ||
+      dailyLog.macros.calories !== dailyLog.adviceMacros.calories ||
       dailyLog.macros.protein !== dailyLog.adviceMacros.protein ||
       dailyLog.macros.carbs !== dailyLog.adviceMacros.carbs ||
       dailyLog.macros.fats !== dailyLog.adviceMacros.fats;
 
     const now = new Date();
-    const lastUpdatedDate = dailyLog.aiAdviceUpdatedAt ? new Date(dailyLog.aiAdviceUpdatedAt) : null;
-    const periodChanged = !lastUpdatedDate || getTimeOfDayPeriod(now) !== getTimeOfDayPeriod(lastUpdatedDate);
-    const timeElapsed = lastUpdatedDate ? (now.getTime() - lastUpdatedDate.getTime()) > 3 * 60 * 60 * 1000 : true; // 3 hours
+    // The same calculation as the server's: the slot the advice should talk about now
+    const next = daySlotStatuses(dailyLog, profile, true, now).next;
+    const nextChanged = dailyLog.adviceSlot === undefined || (dailyLog.adviceSlot ?? null) !== next;
+    const timeElapsed = dailyLog.aiAdviceUpdatedAt ? now.getTime() - dailyLog.aiAdviceUpdatedAt > ADVICE_MAX_AGE_MS : true;
 
-    const hours = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const currentTimeString = `${hours.toString().padStart(2, '0')}:${minutes} (${displayHours}:${minutes} ${ampm})`;
-
-    if (force || macrosChanged || !dailyLog.aiAdvice || periodChanged || timeElapsed) {
+    if (force || macrosChanged || !dailyLog.aiAdvice || nextChanged || timeElapsed) {
       setGeneratingAdvice(true);
       try {
-        const newAdvice = await getPiveAdvice(
-          dailyLog.macros,
-          profile.macroGoals,
-          dailyLog.meals,
-          currentTimeString
-        );
-        if (newAdvice) {
-          const activeDate = selectedDateRef.current;
+        const result = await getPiveAdvice(now);
+        if (result) {
           const logRef = doc(db, `users/${user.uid}/dailyLogs`, activeDate);
           await updateDoc(logRef, {
-            aiAdvice: newAdvice,
+            aiAdvice: result.advice,
             aiAdviceUpdatedAt: Date.now(),
-            adviceMacros: dailyLog.macros
+            adviceMacros: dailyLog.macros,
+            adviceSlot: result.slot,
+            adviceProposal: result.proposal,
           });
-          setAdvice(newAdvice);
+          setAdvice(result.advice);
+        } else {
+          setAdvice('¡Vas súper bien con tus macros de hoy! Sigue sumando consistencia.');
         }
       } catch (error) {
         console.error("Error generating advice:", error);
@@ -164,7 +163,42 @@ export default function Dashboard() {
     }
   }, []);
 
-  // 2. Fetch Gemini Advice when macros, meals, or time periods change
+  // The next meal also changes with the clock (a slot's window passes): check it every few minutes
+  useEffect(() => {
+    const id = setInterval(() => fetchAdvice(false), ADVICE_CHECK_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [fetchAdvice]);
+
+  const handleLogProposal = async () => {
+    const proposal = dailyLog?.adviceProposal;
+    if (!user || !proposal || loggingProposal) return;
+    setLoggingProposal(true);
+    try {
+      await addMealToDailyLog(
+        user.uid,
+        selectedDate,
+        {
+          id: Date.now().toString(),
+          name: proposal.name,
+          time: new Date().toISOString(),
+          macros: proposal.macros,
+          slot: proposal.slot,
+          slotSource: 'plan',
+        },
+        { clearAdviceProposal: true },
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      saveMealToHealthKit(proposal.name, proposal.macros).catch(err => {
+        console.warn('[HealthKit] Error syncing the advice meal:', err);
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/dailyLogs/${selectedDate}`);
+    } finally {
+      setLoggingProposal(false);
+    }
+  };
+
+  // 2. Fetch Gemini Advice when the macros or meals change (and on the interval above)
   const hasDailyLog = Boolean(dailyLog);
   const hasMacroGoals = Boolean(profile?.macroGoals);
   useEffect(() => {
@@ -176,10 +210,12 @@ export default function Dashboard() {
   }, [
     hasDailyLog,
     hasMacroGoals,
+    dailyLog?.macros?.calories,
     dailyLog?.macros?.protein,
     dailyLog?.macros?.carbs,
     dailyLog?.macros?.fats,
     dailyLog?.meals?.length,
+    selectedDate,
     profile?.macroGoals?.protein,
     profile?.macroGoals?.carbs,
     profile?.macroGoals?.fats,
@@ -399,8 +435,11 @@ export default function Dashboard() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               fetchAdvice(true);
             }}
-            disabled={generatingAdvice}
+            disabled={generatingAdvice || !isToday}
             activeOpacity={0.7}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Pedirle otro consejo a Pive"
           >
             <Animated.View style={{ transform: [{ scale }], opacity }}>
               <Sparkles size={20} color={Theme.colors.primary} />
@@ -416,6 +455,24 @@ export default function Dashboard() {
             </Text>
           )}
         </View>
+
+        {isToday && dailyLog?.adviceProposal && !generatingAdvice && (
+          <Pressable
+            style={[styles.proposalButton, loggingProposal ? { opacity: 0.6 } : null]}
+            onPress={handleLogProposal}
+            disabled={loggingProposal}
+            accessibilityRole="button"
+            accessibilityLabel={`Registrar así: ${dailyLog.adviceProposal.name}, ${formatNum(dailyLog.adviceProposal.macros.calories)} kilocalorías`}
+          >
+            <Plus size={16} color={Theme.colors.onPrimary} />
+            <View style={styles.proposalTextBox}>
+              <Text style={styles.proposalButtonText}>Registrar así</Text>
+              <Text style={styles.proposalDetail} numberOfLines={1}>
+                {dailyLog.adviceProposal.name} · {formatNum(dailyLog.adviceProposal.macros.calories)} kcal
+              </Text>
+            </View>
+          </Pressable>
+        )}
       </View>
 
       {/* Grid of Macros */}
@@ -621,6 +678,31 @@ const styles = StyleSheet.create({
     color: Theme.colors.onSurface,
     lineHeight: 20,
     fontStyle: 'italic',
+  },
+  proposalButton: {
+    marginTop: 14,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  proposalTextBox: {
+    flex: 1,
+  },
+  proposalButtonText: {
+    fontFamily: Theme.fonts.bodyBold,
+    fontSize: 14,
+    color: Theme.colors.onPrimary,
+  },
+  proposalDetail: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 11,
+    color: Theme.colors.onPrimary,
+    opacity: 0.8,
   },
   adviceSkeleton: {
     flex: 1,

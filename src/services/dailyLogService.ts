@@ -20,7 +20,11 @@ const applyMacros = (total: Partial<Macros> | undefined, meal: Partial<Macros> |
 // lectura y la escritura, Firestore reintenta con el dato nuevo, así dos cambios casi
 // simultáneos (dos comidas guardadas a la vez, o guardar y borrar) no se pisan.
 
-export const addMealToDailyLog = (uid: string, date: string, meal: Meal) =>
+/**
+ * Adds a meal to the day. With `clearAdviceProposal`, the advice's proposal is cleared in the same transaction
+ * (the user just logged it with "Registrar así").
+ */
+export const addMealToDailyLog = (uid: string, date: string, meal: Meal, options: { clearAdviceProposal?: boolean } = {}) =>
   runTransaction(db, async (tx) => {
     const logRef = getLogRef(uid, date);
     const snap = await tx.get(logRef);
@@ -34,6 +38,7 @@ export const addMealToDailyLog = (uid: string, date: string, meal: Meal) =>
         macros: applyMacros(log.macros, meal.macros, 1),
         meals: [...(log.meals || []), meal],
         expireAt,
+        ...(options.clearAdviceProposal ? { adviceProposal: null } : {}),
       });
     } else {
       tx.set(logRef, {

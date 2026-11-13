@@ -14,8 +14,25 @@ export interface AdviceProposal {
   ingredients: IngredientWithMacros[];
 }
 
-/** obtenerConsejoPive request before phase 1. Response: { advice: string } */
+/** obtenerConsejoPive request. The server reads the profile and that day's log itself. */
 export interface AdviceRequest {
+  localDate: string;
+  /** Local HH:mm */
+  localTime: string;
+}
+
+/** obtenerConsejoPive response */
+export interface AdviceResponse {
+  /** Same key as before phase 1, for older apps */
+  advice: string;
+  /** The slot it talks about: the next one to eat */
+  slot: PlannedSlot | null;
+  /** The plan option it recommends, with the complement or reduction applied; null if none */
+  proposal: AdviceProposal | null;
+}
+
+/** TODO(fase-3): quitar ruta vieja. obtenerConsejoPive request before phase 1. Response: { advice: string } */
+export interface LegacyAdviceRequest {
   dailyMacros: Macros;
   goals: Macros;
   /** `time` is the local HH:mm */
