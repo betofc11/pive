@@ -24,6 +24,8 @@ expo-env.d.ts
 # debug
 npm-debug.*
 yarn-debug.*
+firebase-debug.log
+firestore-debug.log
 yarn-error.*
 
 # macOS

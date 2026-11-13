@@ -1,0 +1,20 @@
+{
+  "description": "Food estimates: a text description and the range a reasonable estimate should fall in. Ranges are wide on purpose (±20–25%): they catch big mistakes, not small differences. expectSlot checks mentionedSlot: null means the description doesn't say which meal it is.",
+  "cases": [
+    { "id": "huevos-revueltos", "text": "2 huevos revueltos con 1 cucharadita de aceite", "kcal": [170, 240], "protein": [11, 15], "expectSlot": null },
+    { "id": "pollo-arroz-almuerzo", "text": "En mi almuerzo comí 150 g de pechuga de pollo a la plancha y 1 taza de arroz blanco cocido", "kcal": [430, 650], "protein": [44, 56], "expectSlot": "lunch" },
+    { "id": "gallo-pinto", "text": "Un plato de gallo pinto con 2 huevos fritos", "kcal": [400, 720], "protein": [18, 32], "expectSlot": null },
+    { "id": "arepa-queso", "text": "Una arepa de maíz mediana rellena de queso blanco", "kcal": [280, 470], "protein": [10, 20] },
+    { "id": "tacos-pastor", "text": "3 tacos al pastor de la calle", "kcal": [400, 750], "protein": [20, 38] },
+    { "id": "avena-desayuno", "text": "Para el desayuno: 40 g de avena con 250 ml de leche descremada y un plátano", "kcal": [300, 420], "protein": [13, 20], "expectSlot": "breakfast" },
+    { "id": "cesar-restaurante", "text": "Ensalada César con pollo en un restaurante", "kcal": [450, 850], "protein": [30, 52] },
+    { "id": "hamburguesa-papas", "text": "Una hamburguesa doble con queso y papas fritas medianas de comida rápida", "kcal": [900, 1450], "protein": [35, 58] },
+    { "id": "atun-tortillas", "text": "1 lata de atún en agua con 2 tortillas de maíz y medio aguacate", "kcal": [330, 520], "protein": [26, 38] },
+    { "id": "yogur-miel", "text": "Un yogur griego natural de 170 g con 1 cucharada de miel", "kcal": [150, 300], "protein": [12, 20] },
+    { "id": "pan-mani-merienda", "text": "De merienda en la tarde: 2 rebanadas de pan integral con 2 cucharadas de mantequilla de maní", "kcal": [300, 440], "protein": [12, 19], "expectSlot": "afternoon_snack" },
+    { "id": "spaghetti-bolonesa", "text": "Un plato de spaghetti a la boloñesa casero con 200 g de pasta cocida", "kcal": [450, 800], "protein": [22, 42] },
+    { "id": "batido-whey", "text": "Un batido de proteína con 1 scoop de whey en agua", "kcal": [100, 150], "protein": [20, 28] },
+    { "id": "casado-cena", "text": "Cené un casado con bistec, arroz, frijoles, ensalada y plátano maduro frito", "kcal": [650, 1150], "protein": [30, 60], "expectSlot": "dinner" },
+    { "id": "empanada-carne", "text": "Una empanada de carne horneada", "kcal": [220, 400], "protein": [8, 18] }
+  ]
+}

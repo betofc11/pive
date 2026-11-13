@@ -14,6 +14,22 @@ export function getLocalDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Local time as 24-hour HH:mm. Accepts a Date or an ISO string (as stored in Meal.time). */
+export function getLocalTimeString(value: Date | string): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (isNaN(date.getTime())) return '';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Date and time for history entries (ISO string) of something that happened on a given local day.
+ * Noon local time, so time zones never move it to the previous or next day.
+ */
+export function dateKeyToNoonIso(dateKey: string): string {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day, 12).toISOString();
+}
+
 export function addDays(dateStr: string, days: number): string {
   const [year, month, day] = dateStr.split('-').map(Number);
   const date = new Date(year, month - 1, day);

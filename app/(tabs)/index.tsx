@@ -138,9 +138,8 @@ export default function Dashboard() {
       setGeneratingAdvice(true);
       try {
         const newAdvice = await getPiveAdvice(
-          dailyLog.macros, 
-          profile.macroGoals, 
-          profile.bodyMetrics,
+          dailyLog.macros,
+          profile.macroGoals,
           dailyLog.meals,
           currentTimeString
         );
@@ -182,7 +181,6 @@ export default function Dashboard() {
     profile?.macroGoals?.protein,
     profile?.macroGoals?.carbs,
     profile?.macroGoals?.fats,
-    profile?.bodyMetrics?.weight,
     user?.uid,
     fetchAdvice
   ]);

@@ -39,7 +39,7 @@ Si una fase es grande, puede ir en varios PRs (cada archivo sugiere cómo partir
 
 | Fase | Archivo | Estado | PRs | Depende de |
 |---|---|---|---|---|
-| 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Pendiente | — | — |
+| 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Hecha (falta desplegar) | [#16](https://github.com/betofc11/pive/pull/16) | — |
 | 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | Pendiente | — | 0 |
 | 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Pendiente | — | 0, 1 |
 | 3 · Chat + planes y límites | `fase-3-chat-limites.md` | Pendiente | — | 1, 2 |
@@ -83,7 +83,10 @@ La fase 4 puede hacerse en paralelo a la 1–3. Si la fase 3 aún no está, la h
 | Complementos | `COMPLEMENTS` | `functions/src/shared/meals/complements.ts` | 1 |
 | Bloques de prompt | `PIVE_CORE`, `NUTRITION_RULES`, `TRAINING_RULES` | `functions/src/ai/prompts/` | 0 |
 | Contexto para la IA | `formatDayContext`, `formatMemoryContext`, `formatLocationContext` | `functions/src/ai/context/` | 1–2 |
-| Uso y costo | `recordUsage` | `functions/src/usage.ts` | 0 |
+| Uso y costo | `recordUsage` (escribe), `featureUsageDelta`, `resolveUsageDate`, `MODEL_PRICES` (puros) | `functions/src/usage.ts`, `functions/src/usageCost.ts` | 0 |
+| Contratos de los endpoints | `FoodAnalysis`, `IngredientsMacros`, `NutritionPlanAnalysis`, `BodyCompositionAnalysis`, `WorkoutPlanAnalysis`, `AdviceRequest` | `functions/src/shared/api.ts` | 0 |
+| Fechas `YYYY-MM-DD` | `isDateKey`, `dateKeyToUtcMs`, `weekdayLabel` | `functions/src/shared/dates.ts` | 0 |
+| Normalizar respuestas de la IA | `normalizeFoodAnalysis`, `mergeIngredientMacros`, `normalizeNutritionPlan`… | `functions/src/ai/tasks/` | 0 |
 | Límites y plan de pago | `PLAN_LIMITS`, `checkAndConsume`, `Entitlements` | `functions/src/limits.ts` | 3 |
 | Memoria | `MemoryFact`, `CoachMemory`, `MemoryOp`, `validateMemoryOps`, `applyMemoryOps` | `functions/src/shared/memory/` | 2 |
 | Consolidación | `consolidateSession` (lógica), `consolidarMemoria` (programada) | `functions/src/memory/` | 2–3 |
@@ -176,3 +179,34 @@ Una entrada por PR o por fase terminada. Lo importante son las **desviaciones de
 - Notas para la fase 0:
   - el `youtubeUrl` que genera la IA no se usa en la app (`ActiveWorkout` usa `openYouTubeSearch(exercise.name)`);
   - las Functions todavía no usan Firestore.
+
+### 2026-11-13 · Fase 0 · PR [#16](https://github.com/betofc11/pive/pull/16)
+- **Qué se hizo:**
+  - `functions/src/shared/`: `macros`, `ingredients`, `meals/slots`, `workouts/exercises`, `config`, más `dates` y `api` (contratos de los endpoints).
+  - `index.ts` partido en `http.ts`, `ai/` (cliente, prompts, esquemas y tareas) y `endpoints/`. Las instrucciones van en `systemInstruction`.
+  - `db` de Firestore con la base con nombre (`firestore.ts`; la app de Admin se inicializa en `admin.ts`).
+  - `recordUsage` en los 6 endpoints, la regla de `usage` y su test de emulador.
+  - `PIVE_CORE`, `NUTRITION_RULES` y `TRAINING_RULES`, y los cambios de esquema y respuesta de B2–B8.
+  - Cambios en la app: `FoodDialog` reescala sin IA, el plan guarda `slot`/`restrictions`/`equivalences`, la composición corporal usa `measuredAt` y el consejo va sin `bodyMetrics`.
+  - Evals en `functions/evals/`. **No se corrieron:** la sesión no tenía `GEMINI_API_KEY`.
+- **Desviaciones del plan (y por qué):**
+  - **Un solo PR, no A y B:** la sesión solo puede empujar a una rama. Los commits sí van separados: A1, A2–A3 y A4, y luego B (Functions), B (app) y B9–B10.
+  - **Nuevos en `shared/`:** `dates.ts` (validar `localDate` y sacar el día de la semana) y `api.ts` (tipos de request y response que comparten la app y las Functions, para que la app no importe de `functions/src/ai/`).
+  - **`localDate` en todas las llamadas,** no solo en el consejo: `callCloudFunction` lo agrega y `recordUsage` fecha el uso con él. El servidor solo lo acepta si está a un día o menos de la fecha UTC; si no, usa la UTC.
+  - **`calcularMacrosIngredientes` solo manda a la IA los ingredientes sin macros.** Si todos traen macros, suma y responde sin llamar a Gemini (y sin registrar uso).
+  - **Las horas de las comidas van al consejo como `HH:mm` local.** Antes iban en ISO UTC y el modelo las comparaba con la hora local.
+  - **Respuestas normalizadas en código:** se validan tipos y rangos, y los macros se redondean a enteros por ingrediente. El total de una comida o de una opción del plan es la suma de sus ingredientes; si a alguno le faltan macros, se usa el total del modelo.
+  - **`estimateFood`** (`ai/estimateFood.ts`): la lógica del endpoint de comida sin HTTP, para que las evals la usen tal cual.
+  - **UI:** `FoodDialog` muestra los macros por ingrediente, el total y "Lo que Pive asumió". `BodyCompositionDialog` muestra la fecha del reporte. `stats.tsx` también importa `MUSCLE_GROUPS` de `shared/`.
+  - **Rutinas:** un día sin ejercicios se conserva, porque puede ser un día de descanso.
+- **Notas para la fase 1:**
+  - **Importar `shared` desde la app:** con ruta relativa, sin alias. Desde `src/`: `'../functions/src/shared/macros'`. Desde `src/components/` o `app/(tabs)/`: `'../../functions/src/shared/…'`. Metro, Jest y `tsc` de la app lo resuelven sin configuración extra, y el build web lo empaqueta (verificado).
+  - **Tipos de los tests:** los `*.test.ts` de `functions/src/` no los revisa ningún `tsc` (la raíz excluye `functions` y `functions/tsconfig.json` excluye los tests). Solo los corre Jest, que no revisa tipos.
+  - **Tests puros fuera de `shared/`:** `ai/tasks/*` y `usageCost.ts` no importan el SDK de Gemini ni Firebase, así que el Jest de la raíz los prueba. Mantén esa separación: lo que importa el SDK va en `ai/gemini.ts`, `ai/schemas.ts`, `ai/estimateFood.ts` y `endpoints/`.
+  - **Tests de emulador de código de Functions:** sigue el patrón de `functions/src/usage.emulator.test.ts` (define `GCLOUD_PROJECT` antes de hacer `require` de los módulos con Admin SDK).
+  - **`slotFromLabel`:** una "Merienda" o un "Snack" sin más contexto → `afternoon_snack`. "Snack nocturno" → `dinner`. Un plan puede tener **dos categorías con el mismo `slot`** (Cena y Snack nocturno): `fitPlanOptions` y la UI tienen que contemplarlo.
+  - **El esquema del plan exige `slot`.** Los planes viejos no lo tienen: usa `category.slot ?? slotFromLabel(category.type)`.
+  - **`mentionedSlot`** ya viene en la respuesta de `analizarImagenComida`, pero `FoodDialog` todavía no lo usa.
+  - **`MODEL_PRICES`** (`usageCost.ts`) usa precios de fuentes secundarias: hay que verificarlos.
+  - **Composición corporal:** un reporte viejo igual reemplaza `bodyMetrics` en el perfil, como antes. Solo cambia la fecha de su entrada en el historial.
+  - **Antes de la fase 1, desplegar:** `npm run deploy:functions`, `npm run deploy:rules`, y luego mergear. El servidor ignora el `bodyMetrics` que mandan las apps viejas.
