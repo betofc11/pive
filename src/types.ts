@@ -1,3 +1,8 @@
+import type { Macros } from '../functions/src/shared/macros';
+import type { PlannedSlot } from '../functions/src/shared/meals/slots';
+
+export type { Macros };
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -45,69 +50,60 @@ export interface NutritionalPlan {
   extractedAt: number;
   meals?: PlanMealCategory[];
   exchanges?: NutritionalPlanExchange[];
+  /** Allergies and foods the plan forbids, as the plan says them. Missing on plans saved before phase 0 */
+  restrictions?: string[];
+  equivalences?: PlanEquivalence[];
+}
+
+/** An exchange the plan allows: within `group`, `quantity` `unit` of `food` counts as one portion */
+export interface PlanEquivalence {
+  group: string;
+  food: string;
+  quantity: number;
+  unit: string;
 }
 
 export interface PlanMealCategory {
   type: string; // e.g., "Desayuno", "Almuerzo", "Cena", "Snack"
+  /** Missing on plans saved before phase 0: use slotFromLabel(type) */
+  slot?: PlannedSlot;
   options: PlanMealOption[];
 }
 
 export interface PlanMealOption {
   title: string;
   ingredients: PlanIngredient[];
-  macros?: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fats: number;
-  };
+  /** Always present on plans saved since phase 0 */
+  macros?: Macros;
 }
 
 export interface PlanIngredient {
   name: string;
   quantity: number;
   unit: string;
+  /** Macros for `quantity`. Always present on plans saved since phase 0 */
+  macros?: Macros;
 }
 
-export interface MacroGoals {
-  protein: number;
-  carbs: number;
-  fats: number;
-  calories: number;
-}
+export type MacroGoals = Macros;
 
 export interface DailyLog {
   id: string;
   userId: string;
   date: string; // ISO string
-  macros: {
-    protein: number;
-    carbs: number;
-    fats: number;
-    calories: number;
-  };
+  macros: Macros;
   meals: Meal[];
   waterIntake?: number; // in ml
   aiAdvice?: string;
   aiAdviceUpdatedAt?: number;
-  adviceMacros?: {
-    protein: number;
-    carbs: number;
-    fats: number;
-    calories: number;
-  };
+  adviceMacros?: Macros;
 }
 
 export interface Meal {
   id: string;
   name: string;
   time: string;
-  macros: {
-    protein: number;
-    carbs: number;
-    fats: number;
-    calories: number;
-  };
+  macros: Macros;
   imageUrl?: string;
 }
 
@@ -138,7 +134,8 @@ export interface WorkoutExercise {
   sets: string;
   reps: string;
   description: string;
-  youtubeUrl: string;
+  /** No longer generated (the app searches YouTube by name). Kept for plans saved before phase 0 */
+  youtubeUrl?: string;
   muscleGroups?: string[];
 }
 

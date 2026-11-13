@@ -11,8 +11,7 @@ import { Theme } from '../../src/theme';
 import { RecordDialog } from '../../src/components/RecordDialog';
 import Svg, { Path, Circle, Text as SvgText, Line as SvgLine, G } from 'react-native-svg';
 import { useHeaderScroll } from './_layout';
-
-const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core'];
+import { MUSCLE_GROUPS } from '../../functions/src/shared/workouts/exercises';
 
 export default function StatsScreen() {
   const { user } = useAuth();

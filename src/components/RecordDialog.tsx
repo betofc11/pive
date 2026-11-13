@@ -7,8 +7,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { StrengthRecord } from '../types';
 import { Theme } from '../theme';
-
-const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core'];
+import { MUSCLE_GROUPS } from '../../functions/src/shared/workouts/exercises';
 
 interface RecordDialogProps {
   isOpen: boolean;
