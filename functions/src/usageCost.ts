@@ -1,5 +1,6 @@
 // Pure part of the usage log: token counts, estimated cost and the date of the document.
 // No Firebase or Gemini imports, so the root Jest can test it.
+import { dateKeyToUtcMs } from "./shared/dates";
 
 /** Each feature that calls the AI. Later phases add 'chat', 'memory', 'routine' and 'location'. */
 export type UsageFeature = "advice" | "food" | "ingredients" | "nutritionPlan" | "bodyComposition" | "workoutPlan";
@@ -67,7 +68,6 @@ export function featureUsageDelta(usage: TokenUsageMetadata | undefined, model: 
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const utcDateString = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -77,14 +77,7 @@ const utcDateString = (ms: number) => new Date(ms).toISOString().slice(0, 10);
  */
 export function resolveUsageDate(localDate: unknown, now: number = Date.now()): string {
   const utcToday = utcDateString(now);
-  if (typeof localDate !== "string") return utcToday;
-  const match = DATE_RE.exec(localDate);
-  if (!match) return utcToday;
-
-  const [, y, m, d] = match.map(Number);
-  const asUtc = Date.UTC(y, m - 1, d);
-  // Rejects dates like 2026-02-30, which Date.UTC would roll over to March
-  if (utcDateString(asUtc) !== localDate) return utcToday;
-  if (Math.abs(asUtc - Date.parse(utcToday)) > DAY_MS) return utcToday;
-  return localDate;
+  const localMs = dateKeyToUtcMs(localDate);
+  if (localMs === null || Math.abs(localMs - Date.parse(utcToday)) > DAY_MS) return utcToday;
+  return localDate as string;
 }

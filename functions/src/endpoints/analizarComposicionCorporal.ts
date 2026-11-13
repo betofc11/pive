@@ -3,11 +3,11 @@ import { aiEndpoint } from "../http";
 import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { BODY_COMPOSITION_SCHEMA } from "../ai/schemas";
-import { BODY_COMPOSITION_INSTRUCTION } from "../ai/tasks/bodyComposition";
+import { BODY_COMPOSITION_INSTRUCTION, normalizeBodyComposition } from "../ai/tasks/bodyComposition";
 
-// Body composition report (heavy model)
+// Body composition report (heavy model). Response: { weight, bodyFat?, muscleMass?, measuredAt: 'YYYY-MM-DD' | null }
 export const analizarComposicionCorporal = aiEndpoint("analizarComposicionCorporal", "Error analyzing body composition", async ({ req, res, uid }) => {
-  const { base64Data, mimeType, text } = req.body;
+  const { base64Data, mimeType, text, localDate } = req.body ?? {};
 
   const ai = requireAi(res);
   if (!ai) return;
@@ -28,7 +28,7 @@ export const analizarComposicionCorporal = aiEndpoint("analizarComposicionCorpor
       responseSchema: BODY_COMPOSITION_SCHEMA,
     },
   });
-  await recordUsage(uid, "bodyComposition", response.usageMetadata, MODELS.heavy);
+  await recordUsage(uid, "bodyComposition", response.usageMetadata, MODELS.heavy, localDate);
 
-  res.status(200).json(JSON.parse(response.text || "{}"));
+  res.status(200).json(normalizeBodyComposition(JSON.parse(response.text || "{}")));
 });

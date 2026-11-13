@@ -3,7 +3,7 @@ import { aiEndpoint } from "../http";
 import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { WORKOUT_PLAN_SCHEMA } from "../ai/schemas";
-import { WORKOUT_PLAN_INSTRUCTION } from "../ai/tasks/workoutPlan";
+import { normalizeWorkoutPlan, WORKOUT_PLAN_INSTRUCTION } from "../ai/tasks/workoutPlan";
 
 interface WorkoutFile {
   base64Data?: string;
@@ -11,9 +11,10 @@ interface WorkoutFile {
   text?: string;
 }
 
-// Workout plan from one or more photos, PDFs or text files (heavy model)
+// Workout plan from one or more photos, PDFs or text files (heavy model).
+// Exercise names go through canonicalExerciseName and muscle groups are limited to MUSCLE_GROUPS. No youtubeUrl.
 export const analizarPlanEntrenamiento = aiEndpoint("analizarPlanEntrenamiento", "Error analyzing workout plan", async ({ req, res, uid }) => {
-  const { files } = req.body;
+  const { files, localDate } = req.body ?? {};
   if (!files || !Array.isArray(files)) {
     res.status(400).json({ error: "Missing or invalid parameter: files" });
     return;
@@ -40,7 +41,7 @@ export const analizarPlanEntrenamiento = aiEndpoint("analizarPlanEntrenamiento",
       responseSchema: WORKOUT_PLAN_SCHEMA,
     },
   });
-  await recordUsage(uid, "workoutPlan", response.usageMetadata, MODELS.heavy);
+  await recordUsage(uid, "workoutPlan", response.usageMetadata, MODELS.heavy, localDate);
 
-  res.status(200).json(JSON.parse(response.text || "{}"));
+  res.status(200).json(normalizeWorkoutPlan(JSON.parse(response.text || "{}")));
 });

@@ -3,11 +3,12 @@ import { aiEndpoint } from "../http";
 import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { FOOD_SCHEMA } from "../ai/schemas";
-import { FOOD_INSTRUCTION } from "../ai/tasks/food";
+import { FOOD_INSTRUCTION, normalizeFoodAnalysis } from "../ai/tasks/food";
 
-// Food from an image, a text description, or both (light model)
+// Food from an image, a text description, or both (light model).
+// Response: { name, macros, ingredients (each with its macros), assumptions, mentionedSlot }. `macros` is the sum of the ingredients.
 export const analizarImagenComida = aiEndpoint("analizarImagenComida", "Error analyzing food image", async ({ req, res, uid }) => {
-  const { base64Data, mimeType, text } = req.body;
+  const { base64Data, mimeType, text, localDate } = req.body ?? {};
   const description = typeof text === "string" ? text.trim() : "";
   const hasImage = Boolean(base64Data && mimeType);
   if (!hasImage && !description) {
@@ -35,7 +36,7 @@ export const analizarImagenComida = aiEndpoint("analizarImagenComida", "Error an
       responseSchema: FOOD_SCHEMA,
     },
   });
-  await recordUsage(uid, "food", response.usageMetadata, MODELS.light);
+  await recordUsage(uid, "food", response.usageMetadata, MODELS.light, localDate);
 
-  res.status(200).json(JSON.parse(response.text || "{}"));
+  res.status(200).json(normalizeFoodAnalysis(JSON.parse(response.text || "{}")));
 });
