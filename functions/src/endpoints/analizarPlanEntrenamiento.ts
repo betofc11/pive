@@ -1,5 +1,6 @@
 import type { Part } from "@google/genai";
 import { aiEndpoint } from "../http";
+import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { WORKOUT_PLAN_SCHEMA } from "../ai/schemas";
 import { WORKOUT_PLAN_INSTRUCTION } from "../ai/tasks/workoutPlan";
@@ -11,7 +12,7 @@ interface WorkoutFile {
 }
 
 // Workout plan from one or more photos, PDFs or text files (heavy model)
-export const analizarPlanEntrenamiento = aiEndpoint("analizarPlanEntrenamiento", "Error analyzing workout plan", async ({ req, res }) => {
+export const analizarPlanEntrenamiento = aiEndpoint("analizarPlanEntrenamiento", "Error analyzing workout plan", async ({ req, res, uid }) => {
   const { files } = req.body;
   if (!files || !Array.isArray(files)) {
     res.status(400).json({ error: "Missing or invalid parameter: files" });
@@ -39,6 +40,7 @@ export const analizarPlanEntrenamiento = aiEndpoint("analizarPlanEntrenamiento",
       responseSchema: WORKOUT_PLAN_SCHEMA,
     },
   });
+  await recordUsage(uid, "workoutPlan", response.usageMetadata, MODELS.heavy);
 
   res.status(200).json(JSON.parse(response.text || "{}"));
 });

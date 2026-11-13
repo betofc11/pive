@@ -1,9 +1,10 @@
 import { aiEndpoint } from "../http";
+import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { ADVICE_INSTRUCTION } from "../ai/tasks/advice";
 
 // Daily advice (light model)
-export const obtenerConsejoPive = aiEndpoint("obtenerConsejoPive", "Error generating advice", async ({ req, res }) => {
+export const obtenerConsejoPive = aiEndpoint("obtenerConsejoPive", "Error generating advice", async ({ req, res, uid }) => {
   const { dailyMacros, goals, bodyMetrics, meals, currentTime } = req.body;
 
   const ai = requireAi(res);
@@ -32,6 +33,7 @@ Métricas corporales de fondo: ${JSON.stringify(bodyMetrics || "No disponibles")
       systemInstruction: ADVICE_INSTRUCTION,
     },
   });
+  await recordUsage(uid, "advice", response.usageMetadata, MODELS.light);
 
   res.status(200).json({ advice: response.text });
 });

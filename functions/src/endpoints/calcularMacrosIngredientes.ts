@@ -1,10 +1,11 @@
 import { aiEndpoint } from "../http";
+import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { INGREDIENTS_MACROS_SCHEMA } from "../ai/schemas";
 import { INGREDIENTS_INSTRUCTION } from "../ai/tasks/ingredients";
 
 // Macros of a list of ingredients (light model)
-export const calcularMacrosIngredientes = aiEndpoint("calcularMacrosIngredientes", "Error calculating macros", async ({ req, res }) => {
+export const calcularMacrosIngredientes = aiEndpoint("calcularMacrosIngredientes", "Error calculating macros", async ({ req, res, uid }) => {
   const { ingredients } = req.body;
   if (!ingredients || !Array.isArray(ingredients)) {
     res.status(400).json({ error: "Missing or invalid parameter: ingredients" });
@@ -23,6 +24,7 @@ export const calcularMacrosIngredientes = aiEndpoint("calcularMacrosIngredientes
       responseSchema: INGREDIENTS_MACROS_SCHEMA,
     },
   });
+  await recordUsage(uid, "ingredients", response.usageMetadata, MODELS.light);
 
   res.status(200).json(JSON.parse(response.text || "{}"));
 });

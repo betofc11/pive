@@ -1,11 +1,12 @@
 import type { Part } from "@google/genai";
 import { aiEndpoint } from "../http";
+import { recordUsage } from "../usage";
 import { generateContentWithRetry, MODELS, requireAi } from "../ai/gemini";
 import { FOOD_SCHEMA } from "../ai/schemas";
 import { FOOD_INSTRUCTION } from "../ai/tasks/food";
 
 // Food from an image, a text description, or both (light model)
-export const analizarImagenComida = aiEndpoint("analizarImagenComida", "Error analyzing food image", async ({ req, res }) => {
+export const analizarImagenComida = aiEndpoint("analizarImagenComida", "Error analyzing food image", async ({ req, res, uid }) => {
   const { base64Data, mimeType, text } = req.body;
   const description = typeof text === "string" ? text.trim() : "";
   const hasImage = Boolean(base64Data && mimeType);
@@ -34,6 +35,7 @@ export const analizarImagenComida = aiEndpoint("analizarImagenComida", "Error an
       responseSchema: FOOD_SCHEMA,
     },
   });
+  await recordUsage(uid, "food", response.usageMetadata, MODELS.light);
 
   res.status(200).json(JSON.parse(response.text || "{}"));
 });
