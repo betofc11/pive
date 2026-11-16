@@ -29,40 +29,36 @@ const macros = { protein: 30, carbs: 45, fats: 12, calories: 420 };
 describe('getPiveAdvice', () => {
   afterEach(() => jest.useRealTimers());
 
-  it('sends only name, local time and macros of each meal, never the photo thumbnail', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ advice: '¡Vas bien!' }));
-    const meals = [
-      // 17:00 UTC is 13:00 in New York (EDT), the test time zone
-      { id: 'm1', name: 'Pollo con arroz', time: '2026-10-19T17:00:00.000Z', macros, imageUrl: 'data:image/jpeg;base64,/9j/AAAA' },
-    ];
+  it('sends only the local date and time: the server reads the day itself', async () => {
+    // 23:30 in New York is already the next day in UTC
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(new Date(2026, 10, 13, 23, 30));
+    fetchMock.mockResolvedValue(jsonResponse({ advice: 'Cena ligera.', slot: 'dinner', proposal: null }));
 
-    await expect(getPiveAdvice(macros, macros, meals, '13:30')).resolves.toBe('¡Vas bien!');
+    await expect(getPiveAdvice()).resolves.toEqual({ advice: 'Cena ligera.', slot: 'dinner', proposal: null });
 
     const { url, headers, body } = lastRequest();
     expect(url).toMatch(/\/obtenerConsejoPive$/);
     expect(headers.Authorization).toBe('Bearer test-token');
-    expect(body.meals).toEqual([{ name: 'Pollo con arroz', time: '13:00', macros }]);
-    expect(JSON.stringify(body)).not.toContain('base64');
+    expect(body).toEqual({ localDate: '2026-11-13', localTime: '23:30' });
   });
 
-  it('sends the local date and no body metrics', async () => {
-    // 23:30 in New York is already the next day in UTC
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(new Date(2026, 10, 13, 23, 30));
-    fetchMock.mockResolvedValue(jsonResponse({ advice: 'Cena ligera.' }));
+  it('returns the proposal to log, and tolerates a server without slot or proposal', async () => {
+    const proposal = { slot: 'lunch', name: 'Arroz con pollo', macros, ingredients: [] };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ advice: 'Haz tu opción 1.', slot: 'lunch', proposal }));
+    await expect(getPiveAdvice(new Date(2026, 10, 13, 12, 5))).resolves.toEqual({ advice: 'Haz tu opción 1.', slot: 'lunch', proposal });
+    expect(lastRequest().body.localTime).toBe('12:05');
 
-    await getPiveAdvice(macros, macros, [], '23:30');
-
-    const { body } = lastRequest();
-    expect(body.localDate).toBe('2026-11-13');
-    expect(body).not.toHaveProperty('bodyMetrics');
-    expect(Object.keys(body).sort()).toEqual(['currentTime', 'dailyMacros', 'goals', 'localDate', 'meals']);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ advice: 'Solo texto.' }));
+    await expect(getPiveAdvice()).resolves.toEqual({ advice: 'Solo texto.', slot: null, proposal: null });
   });
 
-  it('returns a friendly fallback when the function fails', async () => {
+  it('returns null when the function fails or gives no advice', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    fetchMock.mockResolvedValue({ ok: false, status: 500, text: async () => 'boom' });
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'boom' });
+    await expect(getPiveAdvice()).resolves.toBeNull();
 
-    await expect(getPiveAdvice(macros, macros, [], '13:30')).resolves.toMatch(/Buen trabajo/);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ advice: '' }));
+    await expect(getPiveAdvice()).resolves.toBeNull();
   });
 });
 

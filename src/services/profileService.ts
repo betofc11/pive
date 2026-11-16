@@ -1,6 +1,6 @@
-import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteField, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { BodyMetrics } from '../types';
+import { BodyMetrics, DayStructure } from '../types';
 
 type MetricsInput = Omit<BodyMetrics, 'height'>;
 
@@ -28,3 +28,10 @@ export const saveBodyMetrics = async (uid: string, metrics: MetricsInput) => {
   });
   await addToHistory(uid, metrics);
 };
+
+/** Saves the meal slots the user customized ("Mis comidas del día"). */
+export const saveDayStructure = (uid: string, structure: DayStructure) =>
+  updateDoc(doc(db, 'users', uid), { dayStructure: { ...structure, source: 'user' } });
+
+/** Back to the slots of the plan (or the default ones): the customized structure is deleted. */
+export const clearDayStructure = (uid: string) => updateDoc(doc(db, 'users', uid), { dayStructure: deleteField() });

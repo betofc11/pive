@@ -8,7 +8,7 @@ import { analyzeNutritionPlan, calculateMacrosFromIngredients } from '../../src/
 import { useAuth } from '../../src/hooks/useAuth';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../src/firebase';
-import { formatNum, readUriAsBase64 } from '../../src/lib/utils';
+import { formatNum, getLocalDateString, readUriAsBase64 } from '../../src/lib/utils';
 import { Meal, NutritionalPlan, PlanMealOption } from '../../src/types';
 import { mealMacrosFromIngredients } from '../../functions/src/shared/ingredients';
 import { roundMacros } from '../../functions/src/shared/macros';
@@ -18,6 +18,11 @@ import { Theme } from '../../src/theme';
 import { useHeaderScroll } from './_layout';
 import { saveMealToHealthKit } from '../../src/services/healthKitService';
 import { addMealToDailyLog } from '../../src/services/dailyLogService';
+import { clearDayStructure } from '../../src/services/profileService';
+import { useDailyLog } from '../../src/hooks/useDailyLog';
+import { slotSourceFromReason, suggestSlotForNewMeal } from '../../src/lib/mealSlots';
+import { categorySlot } from '../../functions/src/shared/meals/plan';
+import type { PlannedSlot } from '../../functions/src/shared/meals/slots';
 
 export default function PlanScreen() {
   const { user, profile } = useAuth();
@@ -35,6 +40,8 @@ export default function PlanScreen() {
   const [loggingMeal, setLoggingMeal] = useState<string | null>(null);
   const [editingMeal, setEditingMeal] = useState<any | null>(null);
   const [isFoodDialogOpen, setIsFoodDialogOpen] = useState(false);
+  // The day's meals, to suggest the slot of a saved meal
+  const dayLog = useDailyLog(user?.uid, selectedDate);
 
   const currentPlan = profile?.nutritionalPlan;
 
@@ -147,7 +154,25 @@ export default function PlanScreen() {
           nutritionalPlan
         }, { merge: true });
 
-        Alert.alert('¡Plan Extraído!', 'Tu plan nutricional ha sido analizado y guardado con éxito.');
+        if (profile?.dayStructure) {
+          // The customized slots win over the plan's: ask whether to keep them
+          const uid = user.uid;
+          Alert.alert(
+            '¡Plan Extraído!',
+            'Tu plan se guardó. Tienes tus tiempos de comida personalizados: ¿quieres usar los tiempos de tu nuevo plan?',
+            [
+              { text: 'Mantener los míos', style: 'cancel' },
+              {
+                text: 'Usar los del plan',
+                onPress: () => {
+                  clearDayStructure(uid).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`));
+                },
+              },
+            ]
+          );
+        } else {
+          Alert.alert('¡Plan Extraído!', 'Tu plan nutricional ha sido analizado y guardado con éxito.');
+        }
       } else {
         throw new Error('El análisis no devolvió datos estructurados de macros.');
       }
@@ -161,7 +186,8 @@ export default function PlanScreen() {
     }
   };
 
-  const handleRegisterMeal = async (categoryType: string, option: PlanMealOption) => {
+  // `planSlot`: the slot of the plan category; null for a saved meal, which gets the suggestion by time and size
+  const handleRegisterMeal = async (categoryType: string, option: PlanMealOption, planSlot: PlannedSlot | null) => {
     if (!user) return;
     const mealKey = `${categoryType}-${option.title}`;
     setLoggingMeal(mealKey);
@@ -172,6 +198,14 @@ export default function PlanScreen() {
         macros = roundMacros(await calculateMacrosFromIngredients(option.ingredients ?? []));
       }
 
+      const suggestion = suggestSlotForNewMeal({
+        isToday: selectedDate === getLocalDateString(),
+        calories: macros?.calories ?? null,
+        dayMeals: dayLog?.meals,
+        profile,
+        planSlot,
+      });
+
       const newMeal: Meal = {
         id: Date.now().toString(),
         name: option.title,
@@ -181,7 +215,9 @@ export default function PlanScreen() {
           carbs: macros?.carbs || 0,
           fats: macros?.fats || 0,
           calories: macros?.calories || 0
-        }
+        },
+        slot: suggestion.slot,
+        slotSource: slotSourceFromReason(suggestion.reason),
       };
 
       await addMealToDailyLog(user.uid, selectedDate, newMeal);
@@ -403,7 +439,7 @@ export default function PlanScreen() {
                                 </Pressable>
 
                                 <Pressable
-                                  onPress={() => handleRegisterMeal(category.type, option)}
+                                  onPress={() => handleRegisterMeal(category.type, option, categorySlot(category))}
                                   disabled={isLogging || isSuccess}
                                   style={[
                                     styles.optionAddBtn,
@@ -450,7 +486,7 @@ export default function PlanScreen() {
 
       {/* Saved Meals Frequent List */}
       <SavedMealsSection 
-        onRegister={(option) => handleRegisterMeal('Comida Guardada', option)}
+        onRegister={(option) => handleRegisterMeal('Comida Guardada', option, null)}
         onEdit={(meal) => {
           setEditingMeal(meal);
           setIsFoodDialogOpen(true);

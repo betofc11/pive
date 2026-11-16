@@ -1,7 +1,9 @@
+import type { AdviceProposal } from '../functions/src/shared/api';
 import type { Macros } from '../functions/src/shared/macros';
-import type { PlannedSlot } from '../functions/src/shared/meals/slots';
+import type { DayStructure } from '../functions/src/shared/meals/dayStructure';
+import type { MealSlot, PlannedSlot, SlotSource } from '../functions/src/shared/meals/slots';
 
-export type { Macros };
+export type { AdviceProposal, DayStructure, Macros, MealSlot, PlannedSlot, SlotSource };
 
 export interface UserProfile {
   uid: string;
@@ -15,6 +17,8 @@ export interface UserProfile {
   nutritionalPlan?: NutritionalPlan;
   workoutPlan?: WorkoutPlan;
   activeWorkoutSession?: ActiveWorkoutSession | null;
+  /** Only if the user customized their meal slots; otherwise they come from the plan or the default */
+  dayStructure?: DayStructure;
 }
 
 export interface BodyMetrics {
@@ -97,14 +101,22 @@ export interface DailyLog {
   aiAdvice?: string;
   aiAdviceUpdatedAt?: number;
   adviceMacros?: Macros;
+  /** The slot the advice talks about (the next one when it was generated) */
+  adviceSlot?: PlannedSlot | null;
+  /** The meal the advice proposes, for "Registrar así". Cleared once logged */
+  adviceProposal?: AdviceProposal | null;
 }
 
 export interface Meal {
   id: string;
   name: string;
+  /** ISO string */
   time: string;
   macros: Macros;
   imageUrl?: string;
+  /** Missing on meals saved before phase 1: it's inferred when read (resolveMealSlots) */
+  slot?: MealSlot;
+  slotSource?: SlotSource;
 }
 
 export interface StrengthRecord {
