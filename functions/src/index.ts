@@ -6,3 +6,4 @@ export { calcularMacrosIngredientes } from "./endpoints/calcularMacrosIngredient
 export { analizarPlanNutricional } from "./endpoints/analizarPlanNutricional";
 export { analizarComposicionCorporal } from "./endpoints/analizarComposicionCorporal";
 export { analizarPlanEntrenamiento } from "./endpoints/analizarPlanEntrenamiento";
+export { resolverUbicacion } from "./endpoints/resolverUbicacion";

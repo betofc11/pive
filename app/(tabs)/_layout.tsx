@@ -4,6 +4,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { Tabs, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useLocationSync } from '../../src/hooks/useLocationSync';
 import { Theme } from '../../src/theme';
 import { Sparkles, ClipboardList, BarChart3, Dumbbell, Plus, Utensils, Scale, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -120,7 +121,8 @@ export const useHeaderScroll = () => useContext(HeaderScrollContext);
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  useLocationSync(user?.uid, profile);
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [activeDialog, setActiveDialog] = useState<'food' | 'body' | 'record' | null>(null);
   const [scrolled, setScrolled] = useState(false);

@@ -12,6 +12,8 @@ import { DailyLog, Meal, MealSlot } from '../../src/types';
 import { formatNum, getLocalDateString } from '../../src/lib/utils';
 import { daySlotStatuses, resolveDayMeals } from '../../src/lib/mealSlots';
 import { DaySlotsStrip } from '../../src/components/DaySlotsStrip';
+import { LocationNotice } from '../../src/components/LocationNotice';
+import { shouldShowLocationNotice } from '../../src/lib/location';
 import { Theme } from '../../src/theme';
 import { MealList } from '../../src/components/MealList';
 import { router } from 'expo-router';
@@ -376,6 +378,11 @@ export default function Dashboard() {
             <ArrowRight size={20} color={Theme.colors.onPrimary} />
           </View>
         </Pressable>
+      )}
+
+      {/* Location notice: once the profile is complete, so there's never two banners */}
+      {!needsOnboarding && user && shouldShowLocationNotice(profile?.location, Date.now()) && (
+        <LocationNotice uid={user.uid} location={profile?.location} />
       )}
 
       {/* Progress Rings Section */}
