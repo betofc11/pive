@@ -1,6 +1,7 @@
 import { Schema, Type } from "@google/genai";
 import { INGREDIENT_UNITS } from "../shared/ingredients";
 import { MEAL_SLOTS, PLANNED_SLOTS } from "../shared/meals/slots";
+import { MEMORY_CATEGORIES } from "../shared/memory/memory";
 import { MUSCLE_GROUPS } from "../shared/workouts/exercises";
 
 // Response schemas for Gemini's structured output. The code still validates and normalizes every response
@@ -202,4 +203,31 @@ export const WORKOUT_PLAN_SCHEMA: Schema = {
     },
   },
   required: ["name", "days"],
+};
+
+/** Memory consolidation: what to create, update, confirm or delete. Flat, since a schema can't express the union */
+export const MEMORY_OPS_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    operations: {
+      type: Type.ARRAY,
+      description: "Vacío si no hay nada duradero que guardar (es lo normal)",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          op: enumOf(["create", "update", "delete", "confirm"]),
+          key: { type: Type.STRING, description: "categoría.tema, ej. food.pan_cuadrado" },
+          category: enumOf(MEMORY_CATEGORIES, { nullable: true, description: "La categoría de la clave. null en delete y confirm" }),
+          text: { type: Type.STRING, nullable: true, description: "El hecho en tercera persona, máximo 120 caracteres. null en delete y confirm" },
+          foods: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Alimentos que menciona, en minúsculas y sin acentos" },
+          stance: enumOf(["avoid", "prefer"], { nullable: true }),
+          expiresAt: { type: Type.STRING, nullable: true, description: "YYYY-MM-DD si es temporal; si no, null" },
+          evidence: { type: Type.STRING, description: "Cita textual del mensaje del usuario" },
+        },
+        required: ["op", "key", "category", "text", "foods", "stance", "expiresAt", "evidence"],
+        propertyOrdering: ["op", "key", "category", "text", "foods", "stance", "expiresAt", "evidence"],
+      },
+    },
+  },
+  required: ["operations"],
 };

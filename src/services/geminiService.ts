@@ -11,6 +11,7 @@ import type {
   WorkoutPlanAnalysis,
 } from '../../functions/src/shared/api';
 import type { IngredientWithMacros } from '../../functions/src/shared/ingredients';
+import type { ResolvedPlace } from '../../functions/src/shared/location';
 
 type FileInput = { base64Data?: string; mimeType?: string; text?: string };
 
@@ -22,6 +23,14 @@ const getFunctionUrl = (name: string) => {
       })
     : `https://us-central1-purevibe-57dd3.cloudfunctions.net/${name}`;
 };
+
+/** A non-OK answer from a Cloud Function, with its HTTP status */
+export class CloudFunctionError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'CloudFunctionError';
+  }
+}
 
 const callCloudFunction = async <T>(name: string, payload: object): Promise<T> => {
   const url = getFunctionUrl(name);
@@ -49,7 +58,7 @@ const callCloudFunction = async <T>(name: string, payload: object): Promise<T> =
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Error calling Cloud Function ${name}:`, errorText);
-    throw new Error(errorText || `HTTP error ${response.status}`);
+    throw new CloudFunctionError(errorText || `HTTP error ${response.status}`, response.status);
   }
 
   return await response.json();
@@ -89,5 +98,15 @@ export const getPiveAdvice = async (now = new Date()): Promise<AdviceResponse | 
   } catch (error) {
     console.error('Error fetching Pive advice:', error);
     return null;
+  }
+};
+
+/** City and country of coordinates already rounded on the device (roundCoords). Null if there's no place there. */
+export const resolveLocation = async (coords: { lat: number; lng: number }): Promise<ResolvedPlace | null> => {
+  try {
+    return await callCloudFunction<ResolvedPlace>('resolverUbicacion', coords);
+  } catch (error) {
+    if (error instanceof CloudFunctionError && error.status === 404) return null;
+    throw error;
   }
 };

@@ -2,8 +2,19 @@
 // No Firebase or Gemini imports, so the root Jest can test it.
 import { dateKeyToUtcMs } from "./shared/dates";
 
-/** Each feature that calls the AI. Later phases add 'chat', 'memory', 'routine' and 'location'. */
-export type UsageFeature = "advice" | "food" | "ingredients" | "nutritionPlan" | "bodyComposition" | "workoutPlan";
+/**
+ * Each feature that calls the AI or a paid API. 'location' only counts Geocoding calls (no tokens).
+ * Later phases add 'chat' and 'routine'.
+ */
+export type UsageFeature =
+  | "advice"
+  | "food"
+  | "ingredients"
+  | "nutritionPlan"
+  | "bodyComposition"
+  | "workoutPlan"
+  | "memory"
+  | "location";
 
 export interface FeatureUsage {
   calls: number;

@@ -2,8 +2,10 @@ import type { AdviceProposal } from '../functions/src/shared/api';
 import type { Macros } from '../functions/src/shared/macros';
 import type { DayStructure } from '../functions/src/shared/meals/dayStructure';
 import type { MealSlot, PlannedSlot, SlotSource } from '../functions/src/shared/meals/slots';
+import type { UserLocation } from '../functions/src/shared/location';
+import type { CoachMemory, MemoryFact } from '../functions/src/shared/memory/memory';
 
-export type { AdviceProposal, DayStructure, Macros, MealSlot, PlannedSlot, SlotSource };
+export type { AdviceProposal, CoachMemory, DayStructure, Macros, MealSlot, MemoryFact, PlannedSlot, SlotSource, UserLocation };
 
 export interface UserProfile {
   uid: string;
@@ -19,6 +21,10 @@ export interface UserProfile {
   activeWorkoutSession?: ActiveWorkoutSession | null;
   /** Only if the user customized their meal slots; otherwise they come from the plan or the default */
   dayStructure?: DayStructure;
+  /** City and country only, never coordinates (since phase 2) */
+  location?: UserLocation;
+  /** IANA time zone of the device ("America/Costa_Rica"), updated when the app opens (since phase 2) */
+  timeZone?: string;
 }
 
 export interface BodyMetrics {

@@ -46,15 +46,20 @@ export interface EndpointContext {
 }
 
 /**
- * An HTTP POST endpoint that requires a Firebase ID token and has access to the Gemini key.
+ * An HTTP POST endpoint that requires a Firebase ID token, with access to `secrets` (in process.env).
  * Any error the handler throws becomes a 500 with `errorMessage`.
  */
-export const aiEndpoint = (name: string, errorMessage: string, handler: (ctx: EndpointContext) => Promise<void>) =>
+export const authedEndpoint = (
+  name: string,
+  errorMessage: string,
+  secrets: string[],
+  handler: (ctx: EndpointContext) => Promise<void>
+) =>
   onRequest(
     {
       cors: true,
       minInstances: 0,
-      secrets: ["GEMINI_API_KEY"],
+      secrets,
     },
     async (req, res) => {
       const uid = await verifyAuthToken(req, res);
@@ -68,3 +73,7 @@ export const aiEndpoint = (name: string, errorMessage: string, handler: (ctx: En
       }
     }
   );
+
+/** An authenticated endpoint with access to the Gemini key */
+export const aiEndpoint = (name: string, errorMessage: string, handler: (ctx: EndpointContext) => Promise<void>) =>
+  authedEndpoint(name, errorMessage, ["GEMINI_API_KEY"], handler);

@@ -25,6 +25,13 @@ export const requireAi = (res: Response): GoogleGenAI | null => {
   return new GoogleGenAI({ apiKey });
 };
 
+/** The Gemini client outside an HTTP request (scheduled work). Throws if the key is not configured. */
+export const createAi = (): GoogleGenAI => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Gemini API Key is not configured.");
+  return new GoogleGenAI({ apiKey });
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const GEMINI_MAX_ATTEMPTS = 3;

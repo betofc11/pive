@@ -30,7 +30,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -64,6 +70,12 @@
           "healthSharePermission": "Pive necesita leer tus datos de salud (peso, grasa) para mantener tu progreso sincronizado.",
           "healthUpdatePermission": "Pive registrará tus comidas consumidas, peso, grasa corporal y masa magra en Apple Health.",
           "isClinicalDataEnabled": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Pive usa tu ubicación principalmente para sugerirte comidas y tiendas de tu zona. Solo guardamos tu ciudad y país."
         }
       ]
     ],

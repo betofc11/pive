@@ -41,7 +41,7 @@ Si una fase es grande, puede ir en varios PRs (cada archivo sugiere cómo partir
 |---|---|---|---|---|
 | 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Hecha (falta desplegar) | [#16](https://github.com/betofc11/pive/pull/16) | — |
 | 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | Hecha (falta desplegar) | [#17](https://github.com/betofc11/pive/pull/17) | 0 |
-| 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Pendiente | — | 0, 1 |
+| 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Hecha (falta desplegar) | [#18](https://github.com/betofc11/pive/pull/18) | 0, 1 |
 | 3 · Chat + planes y límites | `fase-3-chat-limites.md` | Pendiente | — | 1, 2 |
 | 4 · Rutinas híbridas | `fase-4-rutinas-hibridas.md` | Pendiente | — | 0 (2 y 3 opcionales) |
 | 5 · Apple Health | `fase-5-apple-health.md` | Pendiente (requiere app nativa) | — | 4 |
@@ -93,9 +93,13 @@ La fase 4 puede hacerse en paralelo a la 1–3. Si la fase 3 aún no está, la h
 | Fechas `YYYY-MM-DD` y horas `HH:mm` | `isDateKey`, `dateKeyToUtcMs`, `weekdayLabel`, `isClockTime`, `clockToMinutes`, `utcOffsetFromLocalClock`, `isoToLocalClock` | `functions/src/shared/dates.ts` | 0–1 |
 | Normalizar respuestas de la IA | `normalizeFoodAnalysis`, `mergeIngredientMacros`, `normalizeNutritionPlan`… | `functions/src/ai/tasks/` | 0 |
 | Límites y plan de pago | `PLAN_LIMITS`, `checkAndConsume`, `Entitlements` | `functions/src/limits.ts` | 3 |
-| Memoria | `MemoryFact`, `CoachMemory`, `MemoryOp`, `validateMemoryOps`, `applyMemoryOps` | `functions/src/shared/memory/` | 2 |
-| Consolidación | `consolidateSession` (lógica), `consolidarMemoria` (programada) | `functions/src/memory/` | 2–3 |
-| Ubicación | `UserLocation`, `requestCoarsePosition`, endpoint `resolverUbicacion` | `src/services/locationService*.ts`, `functions/src/location/` | 2 |
+| Memoria | `MemoryFact`, `CoachMemory`, `MemoryOp`, `parseCoachMemory`, `validateMemoryOps`, `applyMemoryOps`, `pruneMemory`, `replacePlanFacts`, `avoidedFoods`, `editFactText` | `functions/src/shared/memory/` (`memory`, `ops`, `prune`, `plan`, `foods`, `edit`) | 2 |
+| Memoria en el servidor | `loadActiveMemory` (lee y limpia), `deleteMemoryFacts` | `functions/src/memory/store.ts` | 2 |
+| Memoria en la app | `subscribeToMemory`, `applyPlanRestrictions`…, `useCoachMemory`, `MemorySection` | `src/services/memoryService.ts`, `src/hooks/`, `src/components/profile/` | 2 |
+| Consolidación | `consolidateSession` (lógica), `consolidarMemoria` (programada); prompt `MEMORY_INSTRUCTION`, `buildConsolidationContents`, `parseMemoryOpsResponse` | `functions/src/memory/consolidate.ts`, `functions/src/ai/tasks/memory.ts` | 2–3 |
+| Ubicación | `UserLocation`, `ResolvedPlace`, `placeLabel`, `timeAgoLabel` | `functions/src/shared/location.ts` | 2 |
+| Ubicación en la app | `requestCoarsePosition`, `getCoarsePositionIfGranted`, `refreshAutoLocation`, `roundCoords`, `shouldShowLocationNotice`, `isAutoLocationStale`, `useDetectLocation`, `LocationNotice`, `LocationSection` | `src/services/locationService*.ts`, `src/services/locationProfileService.ts`, `src/lib/location.ts`, `src/hooks/`, `src/components/` | 2 |
+| Ubicación en el servidor | endpoint `resolverUbicacion`, `parseGeocoding`, `parseLatLng` | `functions/src/endpoints/`, `functions/src/location/` | 2 |
 | Chat | endpoint `chatPive`, `CoachSession`, herramientas `getDaySummary`, `getPlanOptions`, `estimateMeal`, `proposeMealLog`, `getTraining` | `functions/src/chat/` | 3 |
 | Rutinas v2 | `WorkoutBlock` (`strength`, `run`, `mobility`), `normalizeWorkoutDay`, endpoint `generarPlanEntrenamiento` | `functions/src/shared/workouts/` | 4 |
 
@@ -106,7 +110,7 @@ La fase 4 puede hacerse en paralelo a la 1–3. Si la fase 3 aún no está, la h
 | `users/{uid}` (+ `dayStructure`, `location`, `timeZone`) | Dueño | 1–2 |
 | `users/{uid}/dailyLogs/{fecha}` (+ `meals[].slot`, `adviceSlot`, `adviceProposal`) | Dueño | 1 |
 | `users/{uid}/usage/{YYYY-MM-DD}` y `{YYYY-MM}` | Solo servidor (el dueño lee) | 0 |
-| `users/{uid}/coach/memory` | Dueño y servidor | 2 |
+| `users/{uid}/coach/memory` (los hechos van en el mapa `facts`, con la clave como nombre de campo: `facts.food.pan_cuadrado` hay que escribirlo con `FieldPath`) | Dueño y servidor | 2 |
 | `users/{uid}/private/entitlements` | Solo servidor (el dueño lee) | 3 |
 | `users/{uid}/coachSessions/{id}` | Solo servidor (el dueño lee) | 3 |
 
@@ -267,3 +271,52 @@ Una entrada por PR o por fase terminada. Lo importante son las **desviaciones de
     - `buildMealFromFit` y el tipo `AdviceProposal` para `proposeMealLog`;
     - `SlotChips` para la tarjeta de propuesta, y el hook `useDailyLog`.
   - **El cliente** calcula la próxima comida con `daySlotStatuses` (`src/lib/mealSlots.ts`), con los mismos números que el servidor.
+
+### 2026-11-17 · Fase 2 · PR [#18](https://github.com/betofc11/pive/pull/18)
+- **Qué se hizo:**
+  - **PR A (memoria):**
+    - módulo puro `functions/src/shared/memory/`, con todos los casos de la tabla de tests;
+    - regla de `coach/` y servicio de la app (`memoryService.ts`, todo en transacciones), con tests de emulador;
+    - "Lo que Pive sabe de ti" en el perfil (`MemorySection`);
+    - al subir un plan, sus restricciones reemplazan los hechos del plan anterior;
+    - `consolidateSession` con su prompt y esquema (sin programar);
+    - el consejo carga la memoria si está activa, la limpia, la pone en el contexto y filtra los complementos.
+  - **PR B (ubicación):**
+    - `expo-location` 19 (SDK 54) con `locationWhenInUsePermission`, y en Android solo `ACCESS_COARSE_LOCATION` (bloquea `ACCESS_FINE_LOCATION`);
+    - `locationService.ts` / `.web.ts`, `locationProfileService.ts` (caché local en AsyncStorage) y el endpoint `resolverUbicacion`;
+    - aviso en el dashboard, sección "Ubicación" en el perfil y, al abrir la app, `timeZone` y el refresco automático si el permiso ya está concedido;
+    - `formatLocationContext` en el consejo y la regla en `PIVE_CORE`.
+  - Se corrieron lint, los dos `tsc`, `npm test` (385), `npm run test:emulator` (37, con Java 21), `npm run build` y el build de Functions. **No se probó con Gemini ni con la API de Geocoding** (no hay keys en la nube) ni se vio la UI en un navegador (la app exige login real).
+- **Desviaciones del plan (y por qué):**
+  - **Un solo PR para A y B:** la sesión solo puede empujar a una rama. Los commits van separados (memoria pura, servicio y reglas, UI, servidor, ubicación).
+  - **Archivos de `shared/memory/`:** `memory.ts` (tipos, `parseCoachMemory`), `ops.ts` (filtro y aplicar, más `enforceCap`), `prune.ts`, `plan.ts` (`replacePlanFacts`, `restrictionFoods`), `foods.ts` (`avoidedFoods`, `FOOD_GROUPS`) y `edit.ts` (lo que edita el usuario).
+  - **`applyMemoryOps` acepta `maxFacts`** como quinto parámetro (por defecto `DEFAULT_MAX_FACTS`), igual que `consolidateSession`. La fase 3 les pasa `PLAN_LIMITS[tier].memoryFacts`.
+  - **Filtros extra en `validateMemoryOps`:**
+    - la evidencia se compara sin mayúsculas, acentos **ni puntuación**, y tiene que tener al menos 4 caracteres;
+    - un hecho de `food` cuya evidencia dice "hoy", "ahorita" o "esta noche" y no trae vencimiento se rechaza (es un antojo);
+    - "alergia explícita" = la evidencia dice alergia/alérgico, intolerancia, celíaco, anafilaxia o "no tolero";
+    - máximo 20 operaciones por conversación; dos `create` de la misma clave nueva → el segundo es `update`.
+  - **El tope saca por niveles:** primero `food`/`schedule`/`equipment`, luego `context`/`goal`, luego restricciones del chat; siempre el menos confirmado. Nunca saca alergias, lesiones ni restricciones del plan.
+  - **Limpieza (§4.5):** "por confirmar" a los 180 días; sin confirmar 30 días más (`CONFIRM_GRACE_DAYS`), se borran. Las lesiones van a "por confirmar" a los 42 días, pero nunca se borran solas.
+  - **Las restricciones del plan llevan `foods`** (`restrictionFoods`: "Sin lácteos ni gluten" → lácteos, gluten) y `stance: 'avoid'`. **`avoidedFoods` expande grupos** (`FOOD_GROUPS`): "lácteos" saca el queso y el yogur, "vegetariana" saca carnes y pescado, "frutos secos" saca el maní. Sin esto, "Sin lácteos" no filtraba ningún complemento.
+  - **Editar un hecho desde la app:** pasa a `source: 'app'` (un plan nuevo ya no lo borra), guarda `previous`, y relee los alimentos del texto nuevo en alergias y restricciones. Un hecho de `food` editado pierde `foods` y `stance`, que pueden haber dejado de ser ciertos (el texto igual llega a la IA).
+  - **"RESTRICCIONES DE SU PLAN"** solo sale si la memoria está apagada o no tiene hechos del plan (planes subidos antes de esta fase).
+  - **Limpieza perezosa en el servidor:** `loadActiveMemory` borra cada hecho con `FieldPath('facts', key)` (las claves tienen punto), sin reescribir el documento, para no pisar una edición.
+  - **`UserLocation` vive en `functions/src/shared/location.ts`** (no en `src/types.ts`, que lo re-exporta): el servidor también lo necesita.
+  - **`http.ts`:** nuevo `authedEndpoint(name, error, secrets, handler)`; `aiEndpoint` es ese con `GEMINI_API_KEY`. `callCloudFunction` ahora lanza `CloudFunctionError` con `status` (la fase 3 puede derivar `LimitReachedError` de ahí).
+  - **El aviso de ubicación** se muestra si no hay país, el modo no es `off` y no se respondió en 30 días; y solo cuando el perfil está completo, para no juntar dos banners. "Ahora no" guarda `askedAt` (y `mode: 'manual'` si no había modo). Si "Usar mi ubicación" falla, pasa a manual con un aviso suave.
+  - **Apagar la ubicación** borra ciudad, región y país del perfil (y la caché local).
+  - **"Actualizar ahora" y "Usar mi ubicación"** usan `useDetectLocation`, que la fase 3 puede reutilizar al abrir el chat.
+  - **La ciudad, sin `locality`:** se toma `postal_town`, `administrative_area_level_2` o `sublocality` (en Costa Rica, el cantón).
+  - **El fixture de Geocoding no es una respuesta real** (no había key): está armado con el formato documentado. Conviene reemplazarlo por una real anonimizada.
+  - **Los textos de la UI** siguen el diseño, salvo el estado vacío de la memoria: "Todavía no sé nada de ti. Aquí verás lo que me cuentes en el chat y las restricciones de tu plan." (el chat aún no existe).
+- **Notas para la fase 3:**
+  - **`consolidateSession(uid, userMessages, localDate, maxFacts?)`** (`functions/src/memory/consolidate.ts`) está lista para programarse. Devuelve `'applied' | 'skipped' | 'empty'`, usa `createAi()` (no necesita `res`) y registra `recordUsage('memory')`. La función programada debe declarar `secrets: ["GEMINI_API_KEY"]`.
+  - **Para cargar la memoria en el chat** usa `loadActiveMemory(uid, now, maxFacts)` (`functions/src/memory/store.ts`): devuelve `null` si está apagada y ya limpia. `formatMemoryContext` y `formatLocationContext` (`functions/src/ai/context/`) arman el contexto; `getPlanOptions` usa `avoidedFoods(memory)`.
+  - **El aviso de memoria** del primer chat: `CoachMemory.noticeSeenAt` existe en el tipo y `parseCoachMemory` lo conserva; nadie lo escribe todavía.
+  - **Al abrir el chat:** `isAutoLocationStale(profile.location, now)` → `useDetectLocation(uid).detect()` o `refreshAutoLocation(uid, { allowPrompt: true })`. Sin ubicación y sin preguntar: `shouldShowLocationNotice` + `<LocationNotice uid location />`.
+  - **`UsageFeature`** ya tiene `'memory'` y `'location'`; falta `'chat'` (y `'routine'` en la fase 4).
+  - **`PIVE_CORE`** ya tiene la sección "Lo que sabes del usuario" (memoria, "por confirmar" y ubicación). El chat la hereda.
+  - **Pendiente de verificar en una build nativa:** con `android.permissions` explícito, que los permisos que agregan los otros plugins (cámara, Health) sigan entrando.
+  - **Con `timeZone` en el perfil,** `prepareDayAdvice` podría usarlo en vez de `utcOffsetFromLocalClock` (no se cambió).
+  - **§2 dice que "estimar comida" usa el país.** No se hizo en esta fase; `estimateMeal` del chat puede pasarlo.
