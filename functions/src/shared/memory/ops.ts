@@ -118,43 +118,45 @@ export function validateMemoryOps(
       continue;
     }
 
-    if (!isMemoryCategory(op.category) || op.category !== keyCategory) {
+    // create or update (the model's output can have any shape: nothing is trusted)
+    const write = op as Extract<MemoryOp, { op: 'create' | 'update' }>;
+    if (!isMemoryCategory(write.category) || write.category !== keyCategory) {
       reject(op, 'category_mismatch');
       continue;
     }
-    const text = typeof op.text === 'string' ? op.text.trim() : '';
+    const text = typeof write.text === 'string' ? write.text.trim() : '';
     if (!text || text.length > MAX_FACT_TEXT) {
       reject(op, 'invalid_text');
       continue;
     }
     let expiresAt: string | null = null;
-    if (op.expiresAt !== undefined && op.expiresAt !== null) {
-      const end = typeof op.expiresAt === 'string' ? endOfDayMs(op.expiresAt) : null;
+    if (write.expiresAt !== undefined && write.expiresAt !== null) {
+      const end = typeof write.expiresAt === 'string' ? endOfDayMs(write.expiresAt) : null;
       if (end === null || end <= now) {
         reject(op, 'invalid_expiry');
         continue;
       }
-      expiresAt = op.expiresAt;
+      expiresAt = write.expiresAt;
     }
-    if (op.category === 'allergy' && !EXPLICIT_ALLERGY_RE.test(evidence)) {
+    if (write.category === 'allergy' && !EXPLICIT_ALLERGY_RE.test(evidence)) {
       reject(op, 'allergy_not_explicit');
       continue;
     }
-    if (op.category === 'food' && !expiresAt && ONE_DAY_RE.test(evidence)) {
+    if (write.category === 'food' && !expiresAt && ONE_DAY_RE.test(evidence)) {
       reject(op, 'one_day');
       continue;
     }
 
-    const normalized: MemoryOp = {
-      op: keys.has(op.key) ? 'update' : 'create',
-      key: op.key,
-      category: op.category,
+    const normalized: Extract<MemoryOp, { op: 'create' | 'update' }> = {
+      op: keys.has(write.key) ? 'update' : 'create',
+      key: write.key,
+      category: write.category,
       text,
-      evidence: op.evidence.trim(),
+      evidence: write.evidence.trim(),
     };
-    const foods = cleanFoods(op.foods);
+    const foods = cleanFoods(write.foods);
     if (foods) normalized.foods = foods;
-    if (op.stance === 'avoid' || op.stance === 'prefer') normalized.stance = op.stance;
+    if (write.stance === 'avoid' || write.stance === 'prefer') normalized.stance = write.stance;
     if (expiresAt) normalized.expiresAt = expiresAt;
     keys.add(op.key);
     accepted.push(normalized);
@@ -244,11 +246,7 @@ export function applyMemoryOps(
 
   for (const op of ops) {
     const current = facts[op.key];
-    if (op.op === 'delete') {
-      delete facts[op.key];
-    } else if (op.op === 'confirm') {
-      if (current) facts[op.key] = { ...current, lastConfirmedAt: now };
-    } else {
+    if (op.op === 'create' || op.op === 'update') {
       const category = categoryOfKey(op.key);
       if (!category) continue;
       const next = factFromOp(op, category, now, source);
@@ -258,6 +256,10 @@ export function applyMemoryOps(
         else if (current.previous) next.previous = current.previous;
       }
       facts[op.key] = next;
+    } else if (op.op === 'delete') {
+      delete facts[op.key];
+    } else if (current) {
+      facts[op.key] = { ...current, lastConfirmedAt: now };
     }
   }
 

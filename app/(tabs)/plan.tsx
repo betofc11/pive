@@ -19,6 +19,7 @@ import { useHeaderScroll } from './_layout';
 import { saveMealToHealthKit } from '../../src/services/healthKitService';
 import { addMealToDailyLog } from '../../src/services/dailyLogService';
 import { clearDayStructure } from '../../src/services/profileService';
+import { applyPlanRestrictions } from '../../src/services/memoryService';
 import { useDailyLog } from '../../src/hooks/useDailyLog';
 import { slotSourceFromReason, suggestSlotForNewMeal } from '../../src/lib/mealSlots';
 import { categorySlot } from '../../functions/src/shared/meals/plan';
@@ -153,6 +154,11 @@ export default function PlanScreen() {
           macroGoals: { protein, carbs, fats, calories },
           nutritionalPlan
         }, { merge: true });
+
+        // The plan's restrictions replace the old plan's in Pive's memory. Not critical: the plan is already saved
+        applyPlanRestrictions(user.uid, nutritionalPlan.restrictions ?? []).catch((err) =>
+          console.warn('[Memory] Could not save the plan restrictions:', err),
+        );
 
         if (profile?.dayStructure) {
           // The customized slots win over the plan's: ask whether to keep them
