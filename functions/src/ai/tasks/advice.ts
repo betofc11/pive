@@ -3,9 +3,12 @@
 import { PIVE_CORE } from "../prompts/core";
 import { NUTRITION_RULES } from "../prompts/nutrition";
 import { formatDayContext } from "../context/day";
+import { formatLocationContext } from "../context/location";
+import { formatMemoryContext } from "../context/memory";
 import type { AdviceProposal } from "../../shared/api";
 import { isoToLocalClock, utcOffsetFromLocalClock, weekdayLabel } from "../../shared/dates";
 import type { IngredientWithMacros } from "../../shared/ingredients";
+import type { UserLocation } from "../../shared/location";
 import { isMacros, type Macros, scaleMacros } from "../../shared/macros";
 import { computeSlotStatuses } from "../../shared/meals/budget";
 import { COMPLEMENTS } from "../../shared/meals/complements";
@@ -13,6 +16,8 @@ import { resolveDayStructure } from "../../shared/meals/dayStructure";
 import { planCategoriesForSlot, planFoods, type PlanLike, type PlanOptionLike } from "../../shared/meals/plan";
 import { buildMealFromFit, fitPlanOptions, type PlanOptionFit } from "../../shared/meals/planFit";
 import { type PlannedSlot, resolveMealSlots } from "../../shared/meals/slots";
+import { avoidedFoods } from "../../shared/memory/foods";
+import type { CoachMemory } from "../../shared/memory/memory";
 
 const ADVICE_TASK = `# Tu tarea: el consejo del día
 Escribe un consejo sumamente corto, de máximo 2 frases, sobre la PRÓXIMA comida del usuario.
@@ -54,6 +59,7 @@ const describeIngredients = (option: PlanOptionLike) =>
  * Builds the advice context from the documents of users/{uid} and users/{uid}/dailyLogs/{localDate}, as they are
  * in Firestore (any age, so nothing is trusted). `localDate` and `localTime` must be valid; the meals' local
  * times are deduced from them (utcOffsetFromLocalClock). Null if the user has no macro goals.
+ * With the memory on, it goes in the context and its avoided foods never show up as complements.
  */
 export function prepareDayAdvice(input: {
   profile: Record<string, unknown> | undefined;
@@ -61,10 +67,13 @@ export function prepareDayAdvice(input: {
   localDate: string;
   localTime: string;
   nowMs: number;
+  /** Already parsed and pruned (parseCoachMemory, pruneMemory). Off or missing: not used */
+  memory?: CoachMemory | null;
 }): DayAdvicePrep | null {
   const profile = input.profile ?? {};
   const goals = profile.macroGoals;
   if (!isMacros(goals)) return null;
+  const memory = input.memory?.enabled ? input.memory : null;
 
   const plan = (profile.nutritionalPlan ?? null) as PlanLike | null;
   const structure = resolveDayStructure({ dayStructure: profile.dayStructure, nutritionalPlan: plan });
@@ -99,18 +108,25 @@ export function prepareDayAdvice(input: {
         budget: scaleMacros(nextBudget, main.share),
         planFoods: planFoods(plan),
         complements: COMPLEMENTS,
-        // Phase 2 fills it from the memory
-        excludeFoods: [],
+        excludeFoods: memory ? avoidedFoods(memory) : [],
       });
     }
   }
 
   const ingredientsByOption = Object.fromEntries(options.map((option, i) => [i, describeIngredients(option)]));
+  // Location and memory first: they change less than the day (diseno §2, order for the cache)
   const lines: string[] = [];
+  const location = formatLocationContext(profile.location as UserLocation | undefined, input.nowMs);
+  if (location) lines.push(location, "");
+  const memoryText = formatMemoryContext(memory, input.nowMs);
+  if (memoryText) lines.push(memoryText, "");
+  // The memory has the plan's restrictions since phase 2 (restriction.plan_*). Plans saved before, or with the
+  // memory off, still send them from the plan itself
+  const memoryHasPlan = memory ? Object.values(memory.facts).some((f) => f.source === "plan") : false;
   const restrictions = Array.isArray((plan as { restrictions?: unknown } | null)?.restrictions)
     ? ((plan as { restrictions: unknown[] }).restrictions.filter((r) => typeof r === "string" && r.trim()) as string[])
     : [];
-  if (restrictions.length > 0) lines.push(`RESTRICCIONES DE SU PLAN: ${restrictions.join("; ")}`, "");
+  if (restrictions.length > 0 && !memoryHasPlan) lines.push(`RESTRICCIONES DE SU PLAN: ${restrictions.join("; ")}`, "");
   lines.push(
     formatDayContext({
       weekday: weekdayLabel(input.localDate) ?? "",

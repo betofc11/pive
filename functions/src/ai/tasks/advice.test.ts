@@ -2,6 +2,8 @@ import { ADVICE_INSTRUCTION, buildAdviceProposal, parseAdviceChoice, prepareDayA
 import { PIVE_CORE } from '../prompts/core';
 import { NUTRITION_RULES } from '../prompts/nutrition';
 import { sumMacros } from '../../shared/macros';
+import { emptyMemory } from '../../shared/memory/memory';
+import { replacePlanFacts } from '../../shared/memory/plan';
 
 const m = (calories: number, protein: number, carbs: number, fats: number) => ({ calories, protein, carbs, fats });
 
@@ -99,6 +101,43 @@ describe('prepareDayAdvice', () => {
     expect(() => prepare({ log: broken as never })).not.toThrow();
     const offClock = prepare({ nowMs: nowMs + 3 * 24 * 3600 * 1000 });
     expect(offClock.next).toBe('lunch');
+  });
+
+  it('with the memory on: location and memory go first, its foods are not suggested and the plan restrictions are not repeated', () => {
+    const complementNames = (prep: ReturnType<typeof prepare>) => (prep.fits ?? []).flatMap((f) => f.complements.map((c) => c.name));
+    expect(complementNames(prepare()).some((name) => /queso/i.test(name))).toBe(true);
+
+    const fromPlan = replacePlanFacts(emptyMemory(), plan.restrictions, nowMs);
+    const memory = {
+      ...fromPlan,
+      facts: {
+        ...fromPlan.facts,
+        'allergy.queso': {
+          key: 'allergy.queso',
+          category: 'allergy' as const,
+          text: 'Intolerante al queso',
+          foods: ['queso'],
+          source: 'chat' as const,
+          createdAt: nowMs,
+          updatedAt: nowMs,
+          lastConfirmedAt: nowMs,
+        },
+      },
+    };
+    const location = { mode: 'auto', city: 'San José', country: 'Costa Rica', updatedAt: nowMs - 3600_000 };
+    const prep = prepare({ profile: { ...profile, location }, memory });
+
+    expect(prep.contents.startsWith('UBICACIÓN: San José, Costa Rica (automática, hace 1 h)\n\nMEMORIA DEL USUARIO')).toBe(true);
+    expect(prep.contents).toContain('- [Alergia] Intolerante al queso');
+    expect(prep.contents).toContain('- [Restricción] Sin lácteos enteros (de su plan)');
+    expect(prep.contents).not.toContain('RESTRICCIONES DE SU PLAN');
+    expect(complementNames(prep).some((name) => /queso/i.test(name))).toBe(false);
+
+    // Off: neither in the context nor filtering; the plan's restrictions come from the plan again
+    const off = prepare({ memory: { ...memory, enabled: false } });
+    expect(off.contents).not.toContain('MEMORIA');
+    expect(off.contents).toContain('RESTRICCIONES DE SU PLAN: Sin lácteos enteros');
+    expect(complementNames(off).some((name) => /queso/i.test(name))).toBe(true);
   });
 
   it('is null without macro goals', () => {

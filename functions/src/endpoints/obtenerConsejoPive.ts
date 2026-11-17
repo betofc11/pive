@@ -7,6 +7,7 @@ import { ADVICE_INSTRUCTION, buildAdviceProposal, FALLBACK_ADVICE, parseAdviceCh
 import { buildLegacyAdviceContents, LEGACY_ADVICE_INSTRUCTION } from "../ai/tasks/adviceLegacy";
 import type { AdviceResponse } from "../shared/api";
 import { isClockTime, isDateKey } from "../shared/dates";
+import { loadActiveMemory } from "../memory/store";
 
 // TODO(fase-3): quitar ruta vieja. Apps from before phase 1 send { dailyMacros, goals, meals, currentTime, localDate }
 // and get { advice }.
@@ -40,16 +41,20 @@ export const obtenerConsejoPive = aiEndpoint("obtenerConsejoPive", "Error genera
   const ai = requireAi(res);
   if (!ai) return;
 
-  const [userSnap, logSnap] = await Promise.all([
+  const nowMs = Date.now();
+  const [userSnap, logSnap, memory] = await Promise.all([
     db.doc(`users/${uid}`).get(),
     db.doc(`users/${uid}/dailyLogs/${localDate}`).get(),
+    loadActiveMemory(uid, nowMs),
   ]);
+
   const prep = prepareDayAdvice({
     profile: userSnap.data(),
     log: logSnap.exists ? logSnap.data() : null,
     localDate,
     localTime,
-    nowMs: Date.now(),
+    nowMs,
+    memory,
   });
   if (!prep) {
     res.status(400).json({ error: "The user has no macro goals yet" });
