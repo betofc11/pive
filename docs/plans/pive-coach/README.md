@@ -41,7 +41,7 @@ Si una fase es grande, puede ir en varios PRs (cada archivo sugiere cómo partir
 |---|---|---|---|---|
 | 0 · Base común de prompts y medición | `fase-0-base-prompts.md` | Hecha (falta desplegar) | [#16](https://github.com/betofc11/pive/pull/16) | — |
 | 1 · Comidas por tiempo + plan como base | `fase-1-comidas-por-tiempo.md` | Hecha (falta desplegar) | [#17](https://github.com/betofc11/pive/pull/17) | 0 |
-| 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | Pendiente | — | 0, 1 |
+| 2 · Memoria + ubicación | `fase-2-memoria-ubicacion.md` | En curso | — | 0, 1 |
 | 3 · Chat + planes y límites | `fase-3-chat-limites.md` | Pendiente | — | 1, 2 |
 | 4 · Rutinas híbridas | `fase-4-rutinas-hibridas.md` | Pendiente | — | 0 (2 y 3 opcionales) |
 | 5 · Apple Health | `fase-5-apple-health.md` | Pendiente (requiere app nativa) | — | 4 |
