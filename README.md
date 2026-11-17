@@ -46,9 +46,11 @@ pive/
 │   └── types.ts              # Modelos de datos
 ├── functions/                # Cloud Functions con Gemini (lo único que se despliega a Firebase)
 │   ├── src/shared/           # TypeScript puro que usan la app y las Functions: macros, tiempos de comida,
-│   │                         #   ingredientes, ejercicios, fechas y los contratos de los endpoints (api.ts)
+│   │                         #   ingredientes, ejercicios, fechas, memoria, ubicación y los contratos (api.ts)
 │   ├── src/ai/               # Cliente de Gemini, bloques de prompt, esquemas e instrucciones de cada tarea
 │   ├── src/endpoints/        # Un archivo por endpoint (index.ts solo los re-exporta)
+│   ├── src/memory/           # Memoria en el servidor: lectura con limpieza y consolidación de una conversación
+│   ├── src/location/         # Validar coordenadas y leer la respuesta de Geocoding
 │   ├── src/usage.ts          # Registro de tokens y costo por usuario
 │   └── evals/                # Evals de calidad de la IA (se corren a mano, con tu key)
 ├── firestore.rules           # Reglas de seguridad de Firestore
@@ -63,7 +65,8 @@ Los archivos `*.web.ts` son la versión web de un módulo: el bundler elige solo
 
 Todo cuelga de `users/{uid}`, y las reglas solo dejan a cada usuario leer y escribir lo suyo:
 
-- `users/{uid}`: perfil, metas de macros, plan nutricional, rutina, sesión activa y, si los personalizaste, tus tiempos de comida (`dayStructure`).
+- `users/{uid}`: perfil, metas de macros, plan nutricional, rutina, sesión activa, zona horaria (`timeZone`), ubicación (`location`: solo ciudad, región y país, nunca coordenadas) y, si los personalizaste, tus tiempos de comida (`dayStructure`).
+- `coach/memory`: lo que Pive sabe de ti (alergias, gustos, horarios…). Lo ves, editas y borras en el perfil, en "Lo que Pive sabe de ti"; las restricciones del plan entran solas al subirlo.
 - `dailyLogs/{YYYY-MM-DD}`: comidas (con su tiempo, `slot`) y macros del día, y el último consejo con su propuesta (se borran solos a los 90 días con el TTL de `expireAt`).
 - `strengthRecords`, `bodyMetricsHistory`, `savedMeals`.
 - `usage/{YYYY-MM-DD}`: tokens y costo estimado de la IA por función y por día. Solo lo escriben las Cloud Functions; el usuario lo puede leer.
@@ -80,8 +83,10 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
 | `analizarPlanNutricional` | Estructura un plan nutricional (imagen, PDF o texto): metas, tiempos (`slot`), opciones con macros por ingrediente, intercambios, equivalencias y restricciones | `gemini-3.8-flash` |
 | `analizarComposicionCorporal` | Extrae peso, % grasa, masa muscular y la fecha del reporte (`measuredAt`) | `gemini-3.8-flash` |
 | `analizarPlanEntrenamiento` | Estructura una rutina en días y ejercicios, con nombres canónicos en español y grupos musculares de una lista fija | `gemini-3.8-flash` |
+| `resolverUbicacion` | Coordenadas redondeadas `{ lat, lng }` → `{ city, region, country, countryCode }` con la API de Geocoding de Google, o 404 si no hay lugar. El servidor vuelve a redondear a 2 decimales y nunca registra coordenadas. Usa el secreto `GEOCODING_API_KEY` | — |
 
 - **Los números los calcula el código:** el total de una comida es la suma de sus ingredientes, y el de una opción del plan, la de los suyos. Los presupuestos por tiempo de comida, el ajuste de las opciones del plan y sus complementos salen de `functions/src/shared/meals/`. Toda respuesta de la IA se valida y se normaliza antes de devolverla.
+- **Memoria y ubicación en el consejo:** si la memoria está activa, entra al contexto junto con la ubicación, y sus alimentos evitados nunca salen como complementos. Al leerla se borran los hechos vencidos (limpieza sin IA). La consolidación de lo dicho en el chat (`functions/src/memory/consolidate.ts`) está lista, pero se programa con el chat.
 - **Prompts:** las instrucciones van en `systemInstruction` y los datos en `contents`. Los bloques comunes (`PIVE_CORE`, `NUTRITION_RULES`, `TRAINING_RULES`) están en `functions/src/ai/prompts/`.
 - **Registro de uso:** cada llamada a Gemini suma sus tokens (de entrada, cacheados, de salida y de *thinking*) y un costo estimado en `users/{uid}/usage/{YYYY-MM-DD}`. La fecha es la local del usuario (`localDate`, que la app manda en cada llamada). Si el registro falla, la respuesta sale igual. Los precios están en `MODEL_PRICES` (`functions/src/usageCost.ts`): verifícalos en la [página oficial de precios](https://ai.google.dev/gemini-api/docs/pricing).
 
@@ -98,6 +103,7 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
 3. **Levantar las Cloud Functions en local**: en desarrollo (`__DEV__`) la app llama al emulador de Functions (`localhost:5001`, o `10.0.2.2:5001` desde el emulador de Android), así que las funciones de IA necesitan el emulador corriendo. Crea `functions/.secret.local` con tu key de [Google AI Studio](https://aistudio.google.com/apikey):
    ```bash
    echo "GEMINI_API_KEY=tu_api_key" > functions/.secret.local
+   echo "GEOCODING_API_KEY=tu_api_key_de_geocoding" >> functions/.secret.local   # solo para la ubicación automática
    npm run --prefix functions serve   # requiere la CLI de Firebase: npm i -g firebase-tools
    ```
    Auth y Firestore apuntan siempre al proyecto real de Firebase.
@@ -133,7 +139,8 @@ Todas son HTTP `POST` y exigen el ID token de Firebase (`Authorization: Bearer �
 - **Web**: Vercel despliega cada push a `main` y crea una preview por cada PR.
 - **Cloud Functions**:
   ```bash
-  npx firebase-tools functions:secrets:set GEMINI_API_KEY   # solo la primera vez o para rotar la key
+  npx firebase-tools functions:secrets:set GEMINI_API_KEY      # solo la primera vez o para rotar la key
+  npx firebase-tools functions:secrets:set GEOCODING_API_KEY   # key de la API de Geocoding, restringida a esa API
   npm run deploy:functions
   ```
   Si un cambio toca a la vez una función y la app, **despliega primero las funciones**: así la app nueva nunca llama a una versión vieja de la API.
