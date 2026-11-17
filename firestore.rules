@@ -131,6 +131,11 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow write: if false;
       }
+
+      // Pive's memory (coach/memory). The owner sees, edits and deletes it; the Functions write it with the Admin SDK.
+      match /coach/{docId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Default deny
